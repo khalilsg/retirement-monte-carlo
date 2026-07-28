@@ -1,0 +1,1429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Interactive Monte Carlo retirement simulator that bootstraps real 1928-2025 market history to estimate the probability your savings last — with accumulation, guardrails, glide paths, taxes, income streams, sensitivity analysis, and sequence-of-returns risk.">
+<meta property="og:title" content="Retirement Monte Carlo — Longevity of a Portfolio">
+<meta property="og:description" content="Interactive Monte Carlo retirement simulator that bootstraps real 1928-2025 market history to estimate the probability your savings last — with accumulation, guardrails, glide paths, taxes, income streams, sensitivity analysis, and sequence-of-returns risk.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%22.9em%22%20font-size%3D%2290%22%3E%F0%9F%8E%B2%3C%2Ftext%3E%3C%2Fsvg%3E">
+<title>Retirement Monte Carlo — Longevity of a Portfolio</title>
+<style>
+  :root {
+    --paper:#E9EDF3; --surface:#FFFFFF; --surface-2:#F3F6FA;
+    --ink:#14202E; --muted:#586A7C; --faint:#8395A6; --hairline:#D6DEE8;
+    --brand:#3B4DA6; --brand-strong:#2C3B84; --brand-soft:#E6E9F7;
+    --good:#157F5B; --warn:#A9760F; --danger:#B23B2E;
+    --band-outer:#CBD2F0; --band-mid:#93A0E0; --band-line:#2C3B84;
+    --shadow: 0 1px 2px rgba(20,32,46,.05), 0 6px 20px rgba(20,32,46,.06);
+    --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --font-sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:#0C131C; --surface:#131E2B; --surface-2:#18273A;
+      --ink:#E7EDF4; --muted:#94A5B7; --faint:#6C7F92; --hairline:#243747;
+      --brand:#8E9BEE; --brand-strong:#AEB8F6; --brand-soft:#1E2E48;
+      --good:#3FB488; --warn:#D6A23E; --danger:#E3695B;
+      --band-outer:#2C3C61; --band-mid:#4A5DA0; --band-line:#AEB8F6;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:#0C131C; --surface:#131E2B; --surface-2:#18273A;
+    --ink:#E7EDF4; --muted:#94A5B7; --faint:#6C7F92; --hairline:#243747;
+    --brand:#8E9BEE; --brand-strong:#AEB8F6; --brand-soft:#1E2E48;
+    --good:#3FB488; --warn:#D6A23E; --danger:#E3695B;
+    --band-outer:#2C3C61; --band-mid:#4A5DA0; --band-line:#AEB8F6;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --paper:#E9EDF3; --surface:#FFFFFF; --surface-2:#F3F6FA;
+    --ink:#14202E; --muted:#586A7C; --faint:#8395A6; --hairline:#D6DEE8;
+    --brand:#3B4DA6; --brand-strong:#2C3B84; --brand-soft:#E6E9F7;
+    --good:#157F5B; --warn:#A9760F; --danger:#B23B2E;
+    --band-outer:#CBD2F0; --band-mid:#93A0E0; --band-line:#2C3B84;
+    --shadow: 0 1px 2px rgba(20,32,46,.05), 0 6px 20px rgba(20,32,46,.06);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 22px 80px; }
+
+  header.masthead { margin-bottom: 26px; }
+  .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+  h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -.01em; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.08; margin: 8px 0 10px; text-wrap: balance; }
+  .lede { color: var(--muted); max-width: 62ch; font-size: 15.5px; margin: 0; }
+
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+
+  .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow); }
+  .controls { position: sticky; top: 18px; padding: 20px 20px 22px; max-height: calc(100vh - 36px); overflow-y: auto; }
+  @media (max-width: 880px) { .controls { position: static; max-height: none; } }
+
+  .card-title { font-family: var(--font-serif); font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .card-sub { color: var(--faint); font-size: 12.5px; margin: 0 0 18px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); font-weight: 500; margin-bottom: 6px; gap: 8px; }
+  .field label .val { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .input-money { position: relative; }
+  .input-money::before { content: "$"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-family: var(--font-mono); font-size: 14px; }
+  input[type="text"].money { padding-left: 24px; }
+  input[type="text"], select { width: 100%; padding: 9px 11px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink); border-radius: 8px; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  select { font-family: var(--font-sans); cursor: pointer; }
+  input[type="text"]:focus, select:focus, input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 4px; background: var(--hairline); margin: 8px 0 2px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 17px; height: 17px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.25); cursor: pointer; }
+  input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); cursor: pointer; }
+  .range-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); font-family: var(--font-mono); margin-top: 1px; }
+
+  .subpanel { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px; padding: 13px 13px 3px; margin: -2px 0 16px; }
+  .subpanel .field { margin-bottom: 12px; }
+  .subpanel .field label { font-size: 11.5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+
+  .btn { width: 100%; padding: 10px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; font-weight: 500; }
+  .btn:hover { border-color: var(--brand); color: var(--brand); }
+  .btn:active { transform: translateY(1px); }
+  .btn.small { padding: 7px; font-size: 12px; }
+  .divider { height: 1px; background: var(--hairline); margin: 18px 0; border: 0; }
+  .hint { font-size: 11.5px; color: var(--faint); margin: 8px 0 0; line-height: 1.45; }
+
+  /* income streams */
+  .stream { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 9px; padding: 11px 11px 10px; margin-bottom: 8px; }
+  .stream-top { display: flex; gap: 8px; margin-bottom: 8px; }
+  .stream-top .s-label { flex: 1; padding: 6px 9px; font-family: var(--font-sans); font-size: 13px; }
+  .s-del { flex: 0 0 32px; border: 1px solid var(--hairline); background: var(--surface); border-radius: 7px; cursor: pointer; color: var(--faint); font-size: 17px; line-height: 1; }
+  .s-del:hover { color: var(--danger); border-color: var(--danger); }
+  .stream .input-money { margin-bottom: 8px; }
+  .stream-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
+  .mini { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; color: var(--muted); font-weight: 500; margin: 0; }
+  .mini input { padding: 6px 8px; font-size: 13px; }
+  .cola { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); cursor: pointer; margin: 0; font-weight: 500; }
+  .cola input { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
+
+  .results { display: flex; flex-direction: column; gap: 22px; }
+  .outcome { padding: 22px 24px 24px; }
+  .outcome-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; }
+  .big-prob { font-family: var(--font-serif); font-weight: 600; line-height: .95; font-size: clamp(52px, 9vw, 78px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .verdict { font-size: 13px; font-weight: 600; letter-spacing: .02em; margin-top: 4px; }
+  .prob-ci { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); margin-top: 4px; font-variant-numeric: tabular-nums; cursor: help; }
+  #tornado text.tor-name { font-family: var(--font-sans); font-size: 11px; fill: var(--ink); }
+  #tornado text.tor-val { font-family: var(--font-mono); font-size: 9.5px; fill: var(--faint); font-variant-numeric: tabular-nums; }
+  .prob-label { text-align: right; }
+  .prob-label .k { font-size: 12px; color: var(--muted); }
+  .prob-label .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--faint); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+  .meter { height: 9px; border-radius: 6px; margin: 20px 0 6px; position: relative; background: linear-gradient(90deg, var(--danger) 0%, var(--warn) 55%, var(--good) 100%); opacity: .9; }
+  .meter .mk { position: absolute; top: -4px; width: 3px; height: 17px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); transition: left .25s ease; }
+  .meter-scale { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); font-family: var(--font-mono); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin-top: 22px; }
+  .stat { background: var(--surface); padding: 13px 14px; }
+  .stat .k { font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .stat .v { font-family: var(--font-mono); font-size: 18px; font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .stat .v.sm { font-size: 15.5px; }
+
+  .chart-card { padding: 20px 22px 18px; }
+  .chart-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--muted); }
+  .legend .li { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .swatch.line { height: 3px; border-radius: 2px; width: 16px; }
+
+  svg { display: block; width: 100%; height: auto; }
+  .axis text { font-family: var(--font-mono); font-size: 10px; fill: var(--faint); font-variant-numeric: tabular-nums; }
+  .grid line { stroke: var(--hairline); stroke-width: 1; }
+  .axis-title { font-family: var(--font-sans); font-size: 10.5px; fill: var(--muted); font-weight: 500; }
+
+  .sweep-controls { display: grid; grid-template-columns: 1.5fr 1fr 1fr .7fr; gap: 12px; margin-bottom: 16px; }
+  @media (max-width: 620px) { .sweep-controls { grid-template-columns: 1fr 1fr; } }
+  .sweep-controls .field { margin: 0; }
+  .sweep-controls label { font-size: 11px; }
+
+  .tooltip { position: fixed; pointer-events: none; z-index: 20; background: var(--ink); color: var(--surface); padding: 8px 10px; border-radius: 7px; font-size: 11.5px; font-family: var(--font-mono); line-height: 1.5; box-shadow: 0 4px 16px rgba(0,0,0,.28); opacity: 0; transition: opacity .1s; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tooltip .tt-t { font-family: var(--font-sans); font-weight: 600; margin-bottom: 3px; }
+  .tooltip b { color: var(--brand-strong); }
+
+  details.method { margin-top: 22px; font-size: 13px; color: var(--muted); }
+  details.method summary { cursor: pointer; font-weight: 600; color: var(--ink); font-size: 13px; }
+  details.method p { margin: 10px 0; max-width: 74ch; }
+  details.method code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  table.datatable { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  table.datatable th, table.datatable td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--hairline); }
+  table.datatable th:first-child, table.datatable td:first-child { text-align: left; }
+  table.datatable th { color: var(--faint); font-weight: 600; font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .scroll-x { overflow-x: auto; }
+
+  .heat-controls { display: grid; grid-template-columns: 1.4fr .9fr .9fr .7fr; gap: 12px; margin-bottom: 12px; }
+  @media (max-width: 620px) { .heat-controls { grid-template-columns: 1fr 1fr; } }
+  .heat-controls .field { margin: 0; }
+  .heat-controls label { font-size: 11px; }
+
+  .seq-attr { display: grid; grid-template-columns: 158px 1fr; gap: 22px; align-items: center; }
+  @media (max-width: 560px) { .seq-attr { grid-template-columns: 1fr; gap: 14px; } }
+  .seq-share-num { font-family: var(--font-serif); font-weight: 600; font-size: 46px; line-height: 1; color: var(--warn); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+  .seq-share-lab { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.35; }
+  .seqbar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+  .seqbar > div { height: 100%; }
+  .seq-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 11px; font-size: 11.5px; color: var(--muted); }
+  .seq-legend .li { display: flex; align-items: center; gap: 6px; }
+  .seq-legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+  .seq-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .seq-safe-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
+  .seq-target-field { margin: 0; max-width: 118px; }
+  .seq-target-field label { font-size: 11px; }
+  #seq-summary { font-size: 12.5px; color: var(--muted); }
+
+  .scenario { background: var(--brand-soft); border: 1px solid var(--hairline); border-radius: 10px; padding: 12px; margin-bottom: 18px; }
+  .scenario > select { margin-bottom: 8px; }
+  .scenario-row { display: flex; gap: 8px; }
+  .scenario-row + .scenario-row { margin-top: 8px; }
+  .scenario .btn { flex: 1; }
+  .scen-more { margin-top: 10px; }
+  .scen-more > summary { cursor: pointer; font-size: 11.5px; color: var(--muted); font-weight: 600; list-style: none; }
+  .scen-more > summary::-webkit-details-marker { display: none; }
+  .scen-more > summary::before { content: "\25B8  "; color: var(--faint); }
+  .scen-more[open] > summary::before { content: "\25BE  "; }
+  #scen-code { margin: 8px 0; font-size: 12px; }
+  .toast { font-size: 11.5px; color: var(--good); font-weight: 600; margin-top: 8px; min-height: 14px; opacity: 0; transition: opacity .2s; }
+  .toast.show { opacity: 1; }
+
+  details.nerd { margin: 0 0 4px; }
+  details.nerd > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 3px 0; }
+  details.nerd > summary::-webkit-details-marker { display: none; }
+  details.nerd > summary::before { content: "\25B8"; font-size: 9px; color: var(--faint); }
+  details.nerd[open] > summary::before { content: "\25BE"; }
+  details.nerd > summary:hover { color: var(--brand); }
+  .nerd-body { padding-top: 14px; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Retirement Monte Carlo</div>
+    <h1>Will the portfolio outlast the plan?</h1>
+    <p class="lede">Each simulated year draws real history (1928–2025) — stock, bond, and inflation together — and
+      spends, then grows. Results are in today's dollars. Change one assumption and watch the probability of never
+      running out move.</p>
+  </header>
+
+  <div class="layout">
+    <!-- CONTROLS -->
+    <aside class="card controls">
+      <div class="scenario">
+        <select id="preset" aria-label="Load a preset scenario">
+          <option value="">Load a preset…</option>
+          <option value="p_balanced">Balanced — $1.5M, $70k</option>
+          <option value="p_lean">Lean — $900k, $40k</option>
+          <option value="p_fat">Comfortable — $3M, $140k</option>
+          <option value="p_coast">Coast + Social Security</option>
+        </select>
+        <div class="scenario-row">
+          <button class="btn small" id="save-default">★ Save as my default</button>
+          <button class="btn small" id="copy-code">📋 Copy code</button>
+        </div>
+        <details class="scen-more" id="scen-more">
+          <summary>Load a shared scenario</summary>
+          <input type="text" id="scen-code" placeholder="Paste a scenario code here">
+          <div class="scenario-row">
+            <button class="btn small" id="load-code">Load</button>
+            <button class="btn small" id="reset-default">Reset to defaults</button>
+          </div>
+          <p class="hint">To share your numbers, click <b>Copy code</b> and send that text along with this tool's
+            link. The other person opens the tool, expands this section, pastes the code, and clicks <b>Load</b>.
+            <b>Save as my default</b> remembers your numbers in this browser for next time.</p>
+        </details>
+        <div class="toast" id="toast"></div>
+      </div>
+
+      <h2 class="card-title">Assumptions</h2>
+      <p class="card-sub">Everything in today's dollars.</p>
+
+      <div class="field">
+        <label for="cur-age">Current age <span class="val" id="cur-age-v"></span></label>
+        <input type="range" id="cur-age" min="18" max="90" step="1" value="65">
+      </div>
+      <div class="field">
+        <label for="ret-age">Retirement age <span class="val" id="ret-age-v"></span></label>
+        <input type="range" id="ret-age" min="18" max="95" step="1" value="65">
+        <p class="hint" id="ret-age-hint"></p>
+      </div>
+      <div class="field">
+        <label for="end-age">Plan through age <span class="val" id="end-age-v"></span></label>
+        <input type="range" id="end-age" min="60" max="110" step="1" value="95">
+        <p class="hint">The age you want your money to last through.</p>
+      </div>
+
+      <hr class="divider">
+
+      <div class="field">
+        <label for="start">Balance today <span class="val" id="start-v"></span></label>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="start" value="1,500,000"></div>
+      </div>
+
+      <div class="field" id="contrib-field" hidden>
+        <label for="contrib">Annual contribution <span class="val" id="contrib-v"></span></label>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="contrib" value="0"></div>
+        <p class="hint">Added each year until retirement, in today's dollars.</p>
+      </div>
+
+      <div class="field">
+        <label for="spend">Annual spending <span class="val" id="spend-v"></span></label>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="spend" value="70,000"></div>
+      </div>
+
+      <div class="field">
+        <label>Income streams <span class="val" id="inc-sum"></span></label>
+        <div id="streams"></div>
+        <button class="btn small" id="add-stream">+ Add income stream</button>
+        <p class="hint">Pensions, Social Security, annuities, part-time work. Blank “To age” = for life. Turn off
+          <em>inflation-adjusted</em> for a fixed nominal pension — its real value then erodes with inflation.</p>
+      </div>
+
+      <hr class="divider">
+
+      <div class="field">
+        <label for="alloc-mode">Allocation</label>
+        <select id="alloc-mode">
+          <option value="fixed">Fixed stock/bond mix</option>
+          <option value="glide">Glide path over retirement</option>
+        </select>
+      </div>
+
+      <div id="fixed-alloc">
+        <div class="field">
+          <label for="stock">Stock allocation <span class="val"><span id="stock-v"></span>% / <span id="bond-v"></span>% bonds</span></label>
+          <input type="range" id="stock" min="0" max="100" step="5" value="60">
+          <div class="range-ends"><span>0% stock</span><span>100%</span></div>
+        </div>
+      </div>
+
+      <div class="subpanel" id="glide-alloc" hidden>
+        <div class="field"><label for="glide-start">Stock at start <span class="val"><span id="glide-start-v"></span>%</span></label><input type="range" id="glide-start" min="0" max="100" step="5" value="60"></div>
+        <div class="field"><label for="glide-end">Stock at end <span class="val"><span id="glide-end-v"></span>%</span></label><input type="range" id="glide-end" min="0" max="100" step="5" value="30"></div>
+        <p class="hint">Equity share moves linearly from start to end across your retirement. Set start <em>below</em> end
+          for a rising-equity "bond tent," which cushions early sequence-of-returns risk.</p>
+      </div>
+
+      <hr class="divider">
+
+      <details class="nerd">
+        <summary>Nerd stuff</summary>
+        <div class="nerd-body">
+          <div class="field">
+            <label for="spend-mode">Spending strategy</label>
+            <select id="spend-mode">
+              <option value="fixed">Fixed — constant real spending</option>
+              <option value="guardrails">Guardrails — flex with the market</option>
+            </select>
+          </div>
+
+          <div class="subpanel" id="guardrail-fields" hidden>
+            <div class="grid2">
+              <div class="field"><label for="g-band">Guardrail band <span class="val">±<span id="g-band-v"></span>%</span></label><input type="range" id="g-band" min="5" max="40" step="1" value="20"></div>
+              <div class="field"><label for="g-step">Spending step <span class="val">±<span id="g-step-v"></span>%</span></label><input type="range" id="g-step" min="5" max="25" step="1" value="10"></div>
+              <div class="field"><label for="g-floor">Floor <span class="val"><span id="g-floor-v"></span>%</span></label><input type="range" id="g-floor" min="40" max="100" step="1" value="80"></div>
+              <div class="field"><label for="g-ceiling">Ceiling <span class="val"><span id="g-ceiling-v"></span>%</span></label><input type="range" id="g-ceiling" min="100" max="200" step="5" value="120"></div>
+            </div>
+            <p class="hint">When your withdrawal rate drifts a full band above plan, spending steps down (never below the
+              floor); drift below and it steps up (never above the ceiling). Floor/ceiling are % of base spending.</p>
+          </div>
+
+          <div class="field">
+            <label for="fee">Annual fees / drag <span class="val"><span id="fee-v"></span>%</span></label>
+            <input type="range" id="fee" min="0" max="2" step="0.05" value="0.2">
+            <div class="range-ends"><span>0%</span><span>2%</span></div>
+          </div>
+
+          <div class="field">
+            <label for="tax">Effective tax on withdrawals <span class="val"><span id="tax-v"></span>%</span></label>
+            <input type="range" id="tax" min="0" max="40" step="1" value="0">
+            <div class="range-ends"><span>0%</span><span>40%</span></div>
+            <p class="hint">Portfolio withdrawals get grossed up to cover this rate, so you pull extra to pay tax.
+              Your income streams are treated as after-tax already, so they aren't taxed again. Set from your own
+              estimated <em>effective</em> rate (total tax ÷ withdrawals) — 0% if it's all Roth/tax-free.</p>
+          </div>
+
+          <div class="field">
+            <label for="sample-mode">Return sampling</label>
+            <select id="sample-mode">
+              <option value="iid">Independent years</option>
+              <option value="blocks">Blocks — preserve sequences</option>
+            </select>
+          </div>
+
+          <div class="field" id="block-field" hidden>
+            <label for="block-len">Block length <span class="val"><span id="block-len-v"></span> yrs</span></label>
+            <input type="range" id="block-len" min="2" max="15" step="1" value="5">
+            <div class="range-ends"><span>2</span><span>15</span></div>
+          </div>
+        </div>
+      </details>
+
+      <hr class="divider">
+
+      <div class="field">
+        <label for="sims">Simulations</label>
+        <select id="sims">
+          <option value="1000" selected>1,000 (fastest)</option>
+          <option value="2000">2,000</option>
+          <option value="5000">5,000</option>
+          <option value="10000">10,000 (smoothest)</option>
+        </select>
+      </div>
+
+      <button class="btn" id="reshuffle">↻ Reshuffle sampling</button>
+      <p class="hint">Runs reuse one fixed set of sampled histories (common random numbers), so changing an
+        assumption reflects <em>that</em> assumption — not simulation noise. Reshuffle to draw a new set.</p>
+    </aside>
+
+    <!-- RESULTS -->
+    <div class="results">
+      <section class="card outcome">
+        <div class="outcome-head">
+          <div>
+            <div class="eyebrow">Probability of success</div>
+            <div class="big-prob" id="prob">—</div>
+            <div class="verdict" id="verdict"></div>
+            <div class="prob-ci" id="prob-ci" title="95% confidence interval from Monte Carlo sampling — narrower with more simulations"></div>
+          </div>
+          <div class="prob-label">
+            <div class="k">Money lasts the full<br><span id="hz-label"></span>-year retirement</div>
+            <div class="sub" id="run-note"></div>
+          </div>
+        </div>
+        <div class="meter"><div class="mk" id="meter-mk"></div></div>
+        <div class="meter-scale"><span>0%</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head">
+          <div><h2 class="card-title">Balance over time</h2><p class="card-sub">Percentile bands across all simulations, in today's dollars.</p></div>
+          <div class="legend">
+            <span class="li"><span class="swatch" style="background:var(--band-outer)"></span>10th–90th</span>
+            <span class="li"><span class="swatch" style="background:var(--band-mid)"></span>25th–75th</span>
+            <span class="li"><span class="swatch line" style="background:var(--band-line)"></span>Median</span>
+          </div>
+        </div>
+        <svg id="fan" viewBox="0 0 760 380" role="img" aria-label="Fan chart of portfolio balance percentiles over time"></svg>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head"><div><h2 class="card-title">Sequence-of-returns risk</h2><p class="card-sub">How much of the failure risk is the <em>order</em> of returns — and when you're past the danger.</p></div></div>
+        <div class="seq-attr">
+          <div class="seq-share">
+            <div class="seq-share-num" id="seq-share">—</div>
+            <div class="seq-share-lab">of failures are caused by the <b>order</b> of returns</div>
+          </div>
+          <div>
+            <div class="seqbar" id="seq-bar"></div>
+            <div class="seq-legend" id="seq-legend"></div>
+          </div>
+        </div>
+        <details class="method" style="margin-top:16px">
+          <summary>How is this calculated?</summary>
+          <p>Every simulated life produces a specific sequence of yearly returns. We run each one <b>twice</b>:
+            once with the returns in their <b>actual order</b> (what the rest of the tool does), and once
+            <b>smoothed</b> — every year replaced by that same path's <em>geometric-mean</em> return, so the total
+            compound growth over the whole plan is <b>identical</b> and only the ordering is removed.</p>
+          <p>Each failing path is then sorted into one of two causes:</p>
+          <p style="margin-left:14px">• <b style="color:var(--warn)">Sequence failure</b> — fails in the real order but
+            <em>survives</em> when smoothed. The returns were adequate; the bad <em>order</em> (a poor early stretch
+            hitting the portfolio while you withdraw) is what sank it.<br>
+            • <b style="color:var(--muted)">Magnitude failure</b> — fails <em>both</em> ways. The returns were simply
+            too low for the spending, so no reordering could have saved it.</p>
+          <p>The headline figure is <b>sequence failures ÷ all failures</b>, and the bar above shows the same split
+            across every outcome (survives / magnitude / sequence). A few paths do the reverse — fail smoothed but
+            survive in their real order because the ordering happened to help; those are set aside, not counted as
+            failures.</p>
+        </details>
+        <hr class="divider">
+        <div class="seq-safe-head">
+          <p class="card-sub" style="margin:0;max-width:52ch">When can you breathe easy? Success probability at each age in retirement, given your inflation-adjusted balance is still at or above <b id="seq-start"></b>.</p>
+          <div class="field seq-target-field"><label for="seq-target">Safe threshold %</label><input type="text" inputmode="numeric" id="seq-target" value="95"></div>
+        </div>
+        <svg id="seq-chart" viewBox="0 0 760 300" role="img" aria-label="Conditional success probability by year survived on track"></svg>
+        <p class="hint" id="seq-summary"></p>
+        <p class="hint" id="seq-note"></p>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head"><div><h2 class="card-title">Sensitivity sweep</h2><p class="card-sub">Vary one assumption across a range; hold the rest constant.</p></div></div>
+        <div class="sweep-controls">
+          <div class="field"><label for="sweep-var">Parameter</label><select id="sweep-var"></select></div>
+          <div class="field"><label for="sweep-from">From</label><input type="text" inputmode="numeric" id="sweep-from"></div>
+          <div class="field"><label for="sweep-to">To</label><input type="text" inputmode="numeric" id="sweep-to"></div>
+          <div class="field"><label for="sweep-steps">Steps</label><input type="text" inputmode="numeric" id="sweep-steps" value="41"></div>
+        </div>
+        <svg id="sweep" viewBox="0 0 760 340" role="img" aria-label="Sensitivity of success probability to the selected parameter"></svg>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x"><table class="datatable" id="sweep-table"></table></div></details>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head"><div><h2 class="card-title">What moves the needle most</h2><p class="card-sub">Each bar shows how far success swings if that one assumption is off by a plausible amount, everything else held fixed. Longest bar = your biggest lever.</p></div></div>
+        <svg id="tornado" viewBox="0 0 760 300" role="img" aria-label="Tornado chart ranking assumptions by their impact on success probability"></svg>
+        <details class="method">
+          <summary>How to read this</summary>
+          <p>For each assumption I nudge it to a plausible worse and better value — dollars by ±15%, ages by a few years,
+            allocation by ±15 points, tax/fees/floor by a small amount — and re-run the simulation, holding everything
+            else at your current plan. The bar spans the two resulting success rates (the <b style="color:var(--warn)">amber</b>
+            side is worse, the <b style="color:var(--brand)">blue</b> side better), split at your current "now" line. The
+            small numbers at each end are the input values that produced them. Bars are sorted by swing, so the top row is
+            what your plan is most sensitive to. Rankings depend on those assumed ± ranges — treat it as a guide to
+            <em>relative</em> leverage, not exact magnitudes.</p>
+        </details>
+      </section>
+
+      <section class="card chart-card">
+        <div class="chart-head"><div><h2 class="card-title">Success surface</h2><p class="card-sub">Two assumptions at once. Each cell is the success probability; the amber line is your target frontier.</p></div></div>
+        <div class="heat-controls">
+          <div class="field"><label for="hx-var">X axis</label><select id="hx-var"></select></div>
+          <div class="field"><label for="hx-from">X from</label><input type="text" inputmode="numeric" id="hx-from"></div>
+          <div class="field"><label for="hx-to">X to</label><input type="text" inputmode="numeric" id="hx-to"></div>
+          <div class="field"><label for="hx-steps">Columns</label><input type="text" inputmode="numeric" id="hx-steps" value="20"></div>
+          <div class="field"><label for="hy-var">Y axis</label><select id="hy-var"></select></div>
+          <div class="field"><label for="hy-from">Y from</label><input type="text" inputmode="numeric" id="hy-from"></div>
+          <div class="field"><label for="hy-to">Y to</label><input type="text" inputmode="numeric" id="hy-to"></div>
+          <div class="field"><label for="hy-steps">Rows</label><input type="text" inputmode="numeric" id="hy-steps" value="20"></div>
+        </div>
+        <div class="field" style="max-width:210px;margin-bottom:12px"><label for="h-target">Target success (frontier)</label><input type="text" inputmode="numeric" id="h-target" value="85"></div>
+        <svg id="heat" viewBox="0 0 760 470" role="img" aria-label="Heatmap of success probability across two chosen parameters"></svg>
+      </section>
+
+      <details class="method">
+        <summary>Method &amp; assumptions</summary>
+        <p><b>Historical bootstrap.</b> Returns are not modeled with a formula. Each simulated year uses a real
+          calendar year (1928–2025) — that year's S&amp;P 500 total return, 10-year Treasury return, and CPI inflation
+          together — so high-inflation years carry their actual effect on real bond returns and purchasing power.</p>
+        <p><b>Return sampling.</b> <em>Independent years</em> draws each year at random (no memory). <em>Blocks</em>
+          draws contiguous runs of the chosen length (a circular block bootstrap), preserving real sequences like the
+          1929–33 crash or 1973–74 stagflation. Blocks strengthen sequence-of-returns risk, so they give a more
+          faithful read on glide paths, bond tents, and early-retirement fragility.</p>
+        <p><b>Real dollars.</b> Nominal returns are converted to real using that year's inflation
+          (<code>(1+nominal)/(1+inflation) − 1</code>). Base spending stays constant in today's dollars.</p>
+        <p><b>Income streams.</b> Each stream reduces the net withdrawal while it's active (its year range).
+          <em>Inflation-adjusted</em> streams (e.g. Social Security) hold constant real value. A non-adjusted stream
+          (a typical fixed pension) is level in nominal terms, so its real value is divided by the inflation
+          accumulated since it began — it quietly buys less each year.</p>
+        <p><b>Spending strategy.</b> <em>Fixed</em> spends a constant real amount. <em>Guardrails</em>
+          (Guyton–Klinger-style) reassess each year: if your withdrawal rate — base spending ÷ balance — rises a full
+          band above the plan's initial rate you cut spending by the step (down to the floor); if it falls a band
+          below, you raise it by the step (up to the ceiling). The "lean-year spend" stat shows the typical low point.</p>
+        <p><b>Allocation.</b> <em>Fixed</em> holds one stock/bond mix. <em>Glide path</em> moves the equity share
+          linearly from start to end across the horizon; a rising path (start &lt; end) is the "bond tent."</p>
+        <p><b>Common random numbers.</b> One fixed matrix of sampled year-sequences is reused across every run and
+          every sweep point, so differences come from the assumption you changed, not from re-rolling the dice.
+          Reshuffle to draw a new matrix.</p>
+        <p><b>Taxes.</b> A single effective rate on portfolio withdrawals: when the portfolio must fund a shortfall,
+          it withdraws <code>shortfall ÷ (1 − rate)</code> so the tax comes out of the portfolio too. Income streams
+          are assumed after-tax and aren't taxed again. This is a deliberate simplification — it doesn't distinguish
+          Taxable / Tax-deferred / Roth accounts, brackets, RMDs, or Social Security taxability. Use your own
+          estimated effective rate (total tax ÷ total withdrawals); 0% if withdrawals are tax-free.</p>
+        <p><b>Caveats.</b> U.S. history is one sample of possible futures, and this is an educational model — not
+          personalized financial advice. Data: NYU Stern (Damodaran) for stock/bond returns; BLS CPI for inflation.</p>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tt"></div>
+
+<script>
+// ---------- Historical data 1928–2025 (annual %) ----------
+const STOCK_PCT = [43.81,-8.30,-25.12,-43.84,-8.64,49.98,-1.19,46.74,31.94,-35.34,29.28,-1.10,-10.67,-12.77,19.17,25.06,19.03,35.82,-8.43,5.20,5.70,18.30,30.81,23.68,18.15,-1.21,52.56,32.60,7.44,-10.46,43.72,12.06,0.34,26.64,-8.81,22.61,16.42,12.40,-9.97,23.80,10.81,-8.24,3.56,14.22,18.76,-14.31,-25.90,37.00,23.83,-6.98,6.51,18.52,31.74,-4.70,20.42,22.34,6.15,31.24,18.49,5.81,16.54,31.48,-3.06,30.23,7.49,9.97,1.33,37.20,22.68,33.10,28.34,20.89,-9.03,-11.85,-21.97,28.36,10.74,4.83,15.61,5.48,-36.55,25.94,14.82,2.10,15.89,32.15,13.52,1.38,11.77,21.61,-4.23,31.21,18.02,28.47,-18.04,26.06,24.88,17.78];
+const BOND_PCT  = [0.84,4.20,4.54,-2.56,8.79,1.86,7.96,4.47,5.02,1.38,4.21,4.41,5.40,-2.02,2.29,2.49,2.58,3.80,3.13,0.92,1.95,4.66,0.43,-0.30,2.27,4.14,3.29,-1.34,-2.26,6.80,-2.10,-2.65,11.64,2.06,5.69,1.68,3.73,0.72,2.91,-1.58,3.27,-5.01,16.75,9.79,2.82,3.66,1.99,3.61,15.98,1.29,-0.78,0.67,-2.99,8.20,32.81,3.20,13.73,25.71,24.28,-4.96,8.22,17.69,6.24,15.00,9.36,14.21,-8.04,23.48,1.43,9.94,14.92,-8.25,16.66,5.57,15.12,0.38,4.49,2.87,1.96,10.21,20.10,-11.12,8.46,16.04,2.97,-9.10,10.75,1.28,0.69,2.80,-0.02,9.64,11.33,-4.42,-17.83,3.88,-1.64,7.80];
+const INFL_PCT  = [-1.7,0.0,-2.3,-9.0,-9.9,-5.1,3.1,2.2,1.5,3.6,-2.1,-1.4,0.7,5.0,10.9,6.1,1.7,2.3,8.3,14.4,8.1,-1.2,1.3,7.9,1.9,0.8,0.7,-0.4,1.5,3.3,2.8,0.7,1.7,1.0,1.0,1.3,1.3,1.6,2.9,3.1,4.2,5.5,5.7,4.4,3.2,6.2,11.0,9.1,5.8,6.5,7.6,11.3,13.5,10.3,6.2,3.2,4.3,3.6,1.9,3.6,4.1,4.8,5.4,4.2,3.0,3.0,2.6,2.8,3.0,2.3,1.6,2.2,3.4,2.8,1.6,2.3,2.7,3.4,3.2,2.8,3.8,-0.4,1.6,3.2,2.1,1.5,1.6,0.1,1.3,2.1,2.4,1.8,1.2,4.7,8.0,4.1,2.9,2.6];
+
+const N = STOCK_PCT.length;
+const RS = new Float64Array(N), RB = new Float64Array(N), INF = new Float64Array(N);
+for (let i = 0; i < N; i++) {
+  const inf = INFL_PCT[i] / 100;
+  RS[i] = (1 + STOCK_PCT[i]/100) / (1 + inf) - 1;
+  RB[i] = (1 + BOND_PCT[i]/100)  / (1 + inf) - 1;
+  INF[i] = 1 + inf;
+}
+
+// ---------- Seeded RNG + common-random-numbers matrix (block bootstrap) ----------
+const MAXY = 100;
+let SEED = 0x9e3779b9;
+let IDX = null, idxSims = 0, idxBlock = 0;
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function buildIndex(nSims, L) {
+  IDX = new Uint8Array(nSims * MAXY);
+  const rng = mulberry32(SEED);
+  for (let s = 0; s < nSims; s++) {
+    const base = s * MAXY; let pos = 0;
+    while (pos < MAXY) {
+      const start = (rng() * N) | 0;
+      for (let k = 0; k < L && pos < MAXY; k++) { IDX[base + pos] = (start + k) % N; pos++; }
+    }
+  }
+  idxSims = nSims; idxBlock = L;
+}
+
+// ---------- Timeline phases (age basis) ----------
+// A = accumulation years (until retirement), T = total years modeled. Retirement runs years A..T-1.
+function phaseOf(p) {
+  const ca = p.curAge, ra = Math.max(ca, p.retAge), ea = Math.max(ra + 1, p.endAge);
+  const T = Math.max(1, Math.min(MAXY, ea - ca));
+  const A = Math.min(Math.max(0, ra - ca), T - 1);
+  return { ca, A, T };
+}
+// ---------- Allocation glide (spans the whole lifecycle) ----------
+function allocFor(p) {
+  const T = phaseOf(p).T, a = new Float64Array(T);
+  if (p.allocMode === "glide") { for (let y = 0; y < T; y++) a[y] = T <= 1 ? p.glideStart : p.glideStart + (p.glideEnd - p.glideStart) * (y / (T - 1)); }
+  else a.fill(p.stock);
+  return a;
+}
+// Build flat stream arrays for the hot loop (ages -> year offsets from today)
+function streamArrays(p) {
+  const st = p.streams || [], n = st.length, ca = p.curAge;
+  const amt = new Float64Array(n), from = new Int32Array(n), to = new Int32Array(n), cola = new Uint8Array(n), sf = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    amt[i] = st[i].amount || 0;
+    from[i] = Math.max(0, (st[i].from == null ? ca : st[i].from) - ca);
+    to[i] = st[i].to == null ? 1e9 : Math.max(0, st[i].to - ca);
+    cola[i] = st[i].cola ? 1 : 0;
+  }
+  return { n, amt, from, to, cola, sf };
+}
+
+// ---------- Core simulation ----------
+function simSuccess(p, nSims) {
+  const w = allocFor(p), fee = p.fee, start = p.start, base = p.spend, txf = 1 - (p.tax || 0), contrib = p.contribution || 0;
+  const ph = phaseOf(p), A = ph.A, T = ph.T;
+  const guard = p.spendMode === "guardrails", gBand = p.gBand, step = p.gStep, floor = base * p.gFloor, ceil = base * p.gCeiling;
+  const S = streamArrays(p), sn = S.n, sAmt = S.amt, sFrom = S.from, sTo = S.to, sCola = S.cola, sf = S.sf;
+  let succ = 0;
+  for (let s = 0; s < nSims; s++) {
+    let bal = start, spend = base, alive = true, cumInf = 1, upper = Infinity, lower = 0;
+    const bx = s * MAXY;
+    for (let y = 0; y < T; y++) {
+      const retired = y >= A;
+      if (retired) {
+        if (y === A) { const iwr = bal > 0 ? base / bal : 0; upper = iwr * (1 + gBand); lower = iwr * (1 - gBand); }
+        else if (guard) {
+          const wr = bal > 0 ? spend / bal : Infinity;
+          if (wr > upper) { spend *= (1 - step); if (spend < floor) spend = floor; }
+          else if (wr < lower) { spend *= (1 + step); if (spend > ceil) spend = ceil; }
+        }
+      }
+      let inc = 0;
+      for (let i = 0; i < sn; i++) if (y >= sFrom[i] && y <= sTo[i]) {
+        if (sCola[i]) inc += sAmt[i];
+        else { if (y === sFrom[i]) sf[i] = cumInf; inc += sAmt[i] * sf[i] / cumInf; }
+      }
+      const net = (retired ? spend : 0) - inc - (retired ? 0 : contrib);
+      bal -= net > 0 ? net / txf : net;
+      if (retired && bal <= 0) { alive = false; break; }
+      const j = IDX[bx + y], ww = w[y];
+      bal *= 1 + (ww * RS[j] + (1 - ww) * RB[j] - fee);
+      cumInf *= INF[j];
+    }
+    if (alive && bal > 0) succ++;
+  }
+  return (succ / nSims) * 100;
+}
+
+function simFull(p, nSims) {
+  const w = allocFor(p), fee = p.fee, start = p.start, base = p.spend, txf = 1 - (p.tax || 0), contrib = p.contribution || 0;
+  const ph = phaseOf(p), A = ph.A, T = ph.T, ca = ph.ca;
+  const guard = p.spendMode === "guardrails", gBand = p.gBand, step = p.gStep, floor = base * p.gFloor, ceil = base * p.gCeiling;
+  const S = streamArrays(p), sn = S.n, sAmt = S.amt, sFrom = S.from, sTo = S.to, sCola = S.cola, sf = S.sf;
+  const cols = new Array(T + 1);
+  for (let y = 0; y <= T; y++) cols[y] = new Float64Array(nSims);
+  const depYear = [], minSpendArr = new Float64Array(nSims), nestArr = new Float64Array(nSims);
+  let succ = 0;
+  for (let s = 0; s < nSims; s++) {
+    let bal = start, spend = base, minSpend = base, alive = true, depY = 0, cumInf = 1, upper = Infinity, lower = 0;
+    cols[0][s] = start;
+    const bx = s * MAXY;
+    for (let y = 0; y < T; y++) {
+      const retired = y >= A;
+      if (retired) {
+        if (y === A) { const iwr = bal > 0 ? base / bal : 0; upper = iwr * (1 + gBand); lower = iwr * (1 - gBand); }
+        else if (guard) {
+          const wr = bal > 0 ? spend / bal : Infinity;
+          if (wr > upper) { spend *= (1 - step); if (spend < floor) spend = floor; }
+          else if (wr < lower) { spend *= (1 + step); if (spend > ceil) spend = ceil; }
+          if (spend < minSpend) minSpend = spend;
+        }
+      }
+      let inc = 0;
+      for (let i = 0; i < sn; i++) if (y >= sFrom[i] && y <= sTo[i]) {
+        if (sCola[i]) inc += sAmt[i];
+        else { if (y === sFrom[i]) sf[i] = cumInf; inc += sAmt[i] * sf[i] / cumInf; }
+      }
+      const net = (retired ? spend : 0) - inc - (retired ? 0 : contrib);
+      bal -= net > 0 ? net / txf : net;
+      if (retired && bal <= 0) { for (let k = y + 1; k <= T; k++) cols[k][s] = 0; alive = false; depY = y + 1; break; }
+      const j = IDX[bx + y], ww = w[y];
+      bal *= 1 + (ww * RS[j] + (1 - ww) * RB[j] - fee);
+      cumInf *= INF[j];
+      cols[y + 1][s] = bal;
+    }
+    nestArr[s] = cols[A][s];
+    minSpendArr[s] = minSpend;
+    if (alive && bal > 0) succ++; else depYear.push(depY || T);
+  }
+  const pcts = { p10: [], p25: [], p50: [], p75: [], p90: [] };
+  let ymax = 0;
+  for (let y = 0; y <= T; y++) {
+    const arr = cols[y]; arr.sort();
+    pcts.p10.push(q(arr, 0.10)); pcts.p25.push(q(arr, 0.25)); pcts.p50.push(q(arr, 0.50));
+    pcts.p75.push(q(arr, 0.75)); pcts.p90.push(q(arr, 0.90));
+    if (pcts.p90[y] > ymax) ymax = pcts.p90[y];
+  }
+  const ending = cols[T];
+  const medEnd = q(ending, 0.50), p10End = q(ending, 0.10), worst = ending[0];
+  const medLowSpend = q(Float64Array.from(minSpendArr).sort(), 0.50);
+  const medNest = q(Float64Array.from(nestArr).sort(), 0.50);
+  let medDep = null;
+  if (depYear.length) { depYear.sort((a, b) => a - b); medDep = depYear[(depYear.length * 0.5) | 0]; }
+  return { successPct: (succ / nSims) * 100, pcts, ymax, medEnd, p10End, worst, medDep, medLowSpend, medNest, guard, h: T, A, ca, retAge: ca + A, retYears: T - A };
+}
+function q(a, p) { const i = p * (a.length - 1), lo = i | 0, f = i - lo; return lo + 1 < a.length ? a[lo] * (1 - f) + a[lo + 1] * f : a[lo]; }
+
+// Sequence-of-returns analysis: attribution (smooth-returns counterfactual) + conditional survival.
+function simSequence(p, nSims) {
+  const w = allocFor(p), fee = p.fee, start = p.start, base = p.spend, txf = 1 - (p.tax || 0), contrib = p.contribution || 0;
+  const ph = phaseOf(p), A = ph.A, T = ph.T, ca = ph.ca;
+  const guard = p.spendMode === "guardrails", gBand = p.gBand, step = p.gStep, floor = base * p.gFloor, ceil = base * p.gCeiling;
+  const St = streamArrays(p), sn = St.n, sAmt = St.amt, sFrom = St.from, sTo = St.to, sCola = St.cola;
+  const sfA = new Float64Array(sn), sfS = new Float64Array(sn), balN = new Float64Array(T + 1);
+  const onCnt = new Float64Array(T + 1), onSucc = new Float64Array(T + 1);
+  let failActual = 0, magFail = 0, seqFail = 0, lucky = 0, succCount = 0;
+  for (let s = 0; s < nSims; s++) {
+    const bx = s * MAXY;
+    // --- actual ordered path ---
+    let bal = start, spend = base, cumInf = 1, aliveA = true, prod = 1, upper = Infinity, lower = 0, nest = start;
+    balN[0] = start;
+    for (let y = 0; y < T; y++) {
+      const j = IDX[bx + y], r = w[y] * RS[j] + (1 - w[y]) * RB[j] - fee, retired = y >= A;
+      prod *= (1 + r);
+      if (aliveA) {
+        if (retired) {
+          if (y === A) { nest = bal; const iwr = bal > 0 ? base / bal : 0; upper = iwr * (1 + gBand); lower = iwr * (1 - gBand); }
+          else if (guard) { const wr = bal > 0 ? spend / bal : Infinity; if (wr > upper) { spend *= (1 - step); if (spend < floor) spend = floor; } else if (wr < lower) { spend *= (1 + step); if (spend > ceil) spend = ceil; } }
+        }
+        let inc = 0;
+        for (let i = 0; i < sn; i++) if (y >= sFrom[i] && y <= sTo[i]) { if (sCola[i]) inc += sAmt[i]; else { if (y === sFrom[i]) sfA[i] = cumInf; inc += sAmt[i] * sfA[i] / cumInf; } }
+        const net = (retired ? spend : 0) - inc - (retired ? 0 : contrib);
+        bal -= net > 0 ? net / txf : net;
+        if (retired && bal <= 0) { aliveA = false; balN[y + 1] = 0; } else { bal *= (1 + r); cumInf *= INF[j]; balN[y + 1] = bal; }
+      } else balN[y + 1] = 0;
+    }
+    const successA = aliveA && bal > 0;
+    if (successA) succCount++;
+    // on-track during retirement, referenced to that path's nest egg at retirement
+    for (let Nn = A; Nn <= T; Nn++) if (balN[Nn] >= nest && balN[Nn] > 0) { onCnt[Nn]++; if (successA) onSucc[Nn]++; }
+    // --- smoothed counterfactual ---
+    const gmean = T > 0 ? Math.pow(prod, 1 / T) - 1 : 0;
+    let bals = start, spends = base, cumInfS = 1, aliveS = true, upS = Infinity, loS = 0;
+    for (let y = 0; y < T; y++) {
+      const j = IDX[bx + y], retired = y >= A;
+      if (retired) {
+        if (y === A) { const iwr = bals > 0 ? base / bals : 0; upS = iwr * (1 + gBand); loS = iwr * (1 - gBand); }
+        else if (guard) { const wr = bals > 0 ? spends / bals : Infinity; if (wr > upS) { spends *= (1 - step); if (spends < floor) spends = floor; } else if (wr < loS) { spends *= (1 + step); if (spends > ceil) spends = ceil; } }
+      }
+      let inc = 0;
+      for (let i = 0; i < sn; i++) if (y >= sFrom[i] && y <= sTo[i]) { if (sCola[i]) inc += sAmt[i]; else { if (y === sFrom[i]) sfS[i] = cumInfS; inc += sAmt[i] * sfS[i] / cumInfS; } }
+      const net = (retired ? spends : 0) - inc - (retired ? 0 : contrib);
+      bals -= net > 0 ? net / txf : net;
+      if (retired && bals <= 0) { aliveS = false; break; }
+      bals *= (1 + gmean); cumInfS *= INF[j];
+    }
+    const successS = aliveS && bals > 0;
+    if (!successA) { failActual++; if (successS) seqFail++; else magFail++; } else if (!successS) lucky++;
+  }
+  const cond = new Float64Array(T + 1), onFrac = new Float64Array(T + 1);
+  for (let Nn = 0; Nn <= T; Nn++) { cond[Nn] = onCnt[Nn] > 0 ? onSucc[Nn] / onCnt[Nn] * 100 : NaN; onFrac[Nn] = onCnt[Nn] / nSims * 100; }
+  return { h: T, A, ca, nSims, start, successPct: succCount / nSims * 100, failActual: failActual / nSims * 100,
+    magFail: magFail / nSims * 100, seqFail: seqFail / nSims * 100, lucky: lucky / nSims * 100,
+    seqShare: failActual > 0 ? seqFail / failActual * 100 : NaN, cond, onFrac };
+}
+function safeYearFrom(cond, target) {
+  const h = cond.length - 1;
+  for (let N = 1; N <= h; N++) {
+    let ok = !isNaN(cond[N]) && cond[N] >= target;
+    for (let k = N; k <= h && ok; k++) if (!isNaN(cond[k]) && cond[k] < target) ok = false;
+    if (ok) return N;
+  }
+  return null;
+}
+
+// ---------- Formatting ----------
+function fmtMoney(x) {
+  const neg = x < 0; x = Math.abs(x); let s;
+  if (x >= 1e6) s = "$" + (x / 1e6).toFixed(x >= 1e7 ? 1 : 2).replace(/\.?0+$/, "") + "M";
+  else if (x >= 1e3) s = "$" + Math.round(x / 1e3) + "k";
+  else s = "$" + Math.round(x);
+  return (neg ? "−" : "") + s;
+}
+function fmtFull(x) { return "$" + Math.round(x).toLocaleString("en-US"); }
+function parseNum(str) { const n = parseFloat(String(str).replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; }
+function commafy(n) { return Math.round(n).toLocaleString("en-US"); }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+// ---------- Income streams state ----------
+let streams = [{ label: "Pension", amount: 0, from: "65", to: "", cola: false }];
+function renderStreams() {
+  const host = el("streams");
+  host.innerHTML = streams.map((s, i) => `
+    <div class="stream">
+      <div class="stream-top">
+        <input type="text" class="s-label" data-i="${i}" value="${escapeHtml(s.label)}" aria-label="Income label">
+        <button class="s-del" data-i="${i}" title="Remove" aria-label="Remove income stream">&times;</button>
+      </div>
+      <div class="input-money"><input type="text" inputmode="numeric" class="money s-amount" data-i="${i}" value="${commafy(s.amount)}" aria-label="Annual amount"></div>
+      <div class="stream-grid">
+        <label class="mini">From age<input type="text" inputmode="numeric" class="s-from" data-i="${i}" value="${escapeHtml(s.from)}"></label>
+        <label class="mini">To age<input type="text" inputmode="numeric" class="s-to" data-i="${i}" value="${escapeHtml(s.to)}" placeholder="life"></label>
+      </div>
+      <label class="cola"><input type="checkbox" class="s-cola" data-i="${i}" ${s.cola ? "checked" : ""}> Inflation-adjusted</label>
+    </div>`).join("");
+  host.querySelectorAll(".s-label").forEach(e => {
+    e.addEventListener("input", ev => { streams[+ev.target.dataset.i].label = ev.target.value; });
+    e.addEventListener("change", () => { buildSweepOptions(); });
+  });
+  host.querySelectorAll(".s-amount").forEach(e => {
+    e.addEventListener("input", ev => { streams[+ev.target.dataset.i].amount = parseNum(ev.target.value); debounced(); });
+    e.addEventListener("blur", ev => { ev.target.value = commafy(parseNum(ev.target.value)); });
+  });
+  host.querySelectorAll(".s-from").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].from = ev.target.value; debounced(); }));
+  host.querySelectorAll(".s-to").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].to = ev.target.value; debounced(); }));
+  host.querySelectorAll(".s-cola").forEach(e => e.addEventListener("change", ev => { streams[+ev.target.dataset.i].cola = ev.target.checked; debounced(); }));
+  host.querySelectorAll(".s-del").forEach(e => e.addEventListener("click", ev => {
+    streams.splice(+ev.target.dataset.i, 1);
+    if (el("sweep-var").value.startsWith("inc")) el("sweep-var").value = "spend";
+    if (el("hx-var").value.startsWith("inc")) el("hx-var").value = "spend";
+    if (el("hy-var").value.startsWith("inc")) el("hy-var").value = "start";
+    renderStreams(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y"); recompute();
+  }));
+}
+
+// ---------- Controls ----------
+const el = id => document.getElementById(id);
+function normStreams() {
+  return streams.map(s => ({
+    label: s.label, amount: +s.amount || 0,
+    from: Math.max(0, Math.round(parseNum(s.from)) || 0),
+    to: (s.to == null || String(s.to).trim() === "") ? null : Math.max(0, Math.round(parseNum(s.to))),
+    cola: !!s.cola,
+  }));
+}
+function readParams() {
+  const sampleMode = el("sample-mode").value;
+  return {
+    start: parseNum(el("start").value),
+    spend: parseNum(el("spend").value),
+    curAge: +el("cur-age").value, retAge: +el("ret-age").value, endAge: +el("end-age").value,
+    contribution: parseNum(el("contrib").value),
+    fee: +el("fee").value / 100,
+    tax: +el("tax").value / 100,
+    spendMode: el("spend-mode").value,
+    gBand: +el("g-band").value / 100, gStep: +el("g-step").value / 100,
+    gFloor: +el("g-floor").value / 100, gCeiling: +el("g-ceiling").value / 100,
+    allocMode: el("alloc-mode").value, stock: +el("stock").value / 100,
+    glideStart: +el("glide-start").value / 100, glideEnd: +el("glide-end").value / 100,
+    blockLen: sampleMode === "blocks" ? +el("block-len").value : 1,
+    streams: normStreams(),
+  };
+}
+function currentSims() { return +el("sims").value; }
+
+// ---------- Sweep registry ----------
+const SWEEP_META = {
+  spend:   { label: "Annual spending", kind: "money", apply: (pp, v) => pp.spend = v, cur: p => p.spend, min: 0, range: p => [Math.round(p.spend * .5 / 1000) * 1000, Math.round(p.spend * 1.6 / 1000) * 1000], tw: p => [p.spend * .85, p.spend * 1.15] },
+  start:   { label: "Balance today", kind: "money", apply: (pp, v) => pp.start = v, cur: p => p.start, min: 0, range: p => [Math.round(p.start * .5 / 10000) * 10000, Math.round(p.start * 1.6 / 10000) * 10000], tw: p => [p.start * .85, p.start * 1.15] },
+  retAge:  { label: "Retirement age", kind: "int", int: true, apply: (pp, v) => pp.retAge = Math.round(v), cur: p => p.retAge, min: 30, max: 90, range: p => [30, Math.min(90, p.endAge - 1)], tw: p => [p.retAge - 3, p.retAge + 3] },
+  endAge:  { label: "Plan-through age", kind: "int", int: true, apply: (pp, v) => pp.endAge = Math.round(v), cur: p => p.endAge, min: 60, max: 110, range: p => [Math.max(p.retAge + 5, 80), 105], tw: p => [p.endAge - 5, p.endAge + 5] },
+  contrib: { label: "Annual contribution", kind: "money", apply: (pp, v) => pp.contribution = v, cur: p => p.contribution, min: 0, range: p => [0, Math.max(50000, Math.round(p.spend / 1000) * 1000)], when: p => p.retAge > p.curAge, tw: p => [p.contribution * .7, p.contribution * 1.3] },
+  fee:     { label: "Fees (%)", kind: "pctDec", apply: (pp, v) => pp.fee = v / 100, cur: p => p.fee * 100, min: 0, max: 3, range: () => [0, 2], tw: p => [p.fee * 100 - 0.3, p.fee * 100 + 0.3] },
+  tax:     { label: "Effective tax (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.tax = v / 100, cur: p => p.tax * 100, min: 0, max: 60, range: () => [0, 35], tw: p => [p.tax * 100 - 5, p.tax * 100 + 5] },
+  stock:   { label: "Stock allocation (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.stock = v / 100, cur: p => p.stock * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "fixed", tw: p => [p.stock * 100 - 15, p.stock * 100 + 15] },
+  glideStart: { label: "Starting stock (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.glideStart = v / 100, cur: p => p.glideStart * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "glide", tw: p => [p.glideStart * 100 - 15, p.glideStart * 100 + 15] },
+  glideEnd: { label: "Ending stock (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.glideEnd = v / 100, cur: p => p.glideEnd * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "glide", tw: p => [p.glideEnd * 100 - 15, p.glideEnd * 100 + 15] },
+  gFloor:  { label: "Spending floor (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gFloor = v / 100, cur: p => p.gFloor * 100, min: 30, max: 100, range: () => [50, 100], when: p => p.spendMode === "guardrails", tw: p => [p.gFloor * 100 - 10, p.gFloor * 100 + 10] },
+  gCeiling:{ label: "Spending ceiling (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gCeiling = v / 100, cur: p => p.gCeiling * 100, min: 100, max: 250, range: () => [100, 160], when: p => p.spendMode === "guardrails" },
+  gBand:   { label: "Guardrail band (±%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gBand = v / 100, cur: p => p.gBand * 100, min: 1, max: 60, range: () => [5, 40], when: p => p.spendMode === "guardrails" },
+  blockLen:{ label: "Block length (yrs)", kind: "int", int: true, apply: (pp, v) => pp.blockLen = Math.max(1, Math.round(v)), cur: p => p.blockLen, min: 1, max: 20, range: () => [1, 12], when: p => p.blockLen > 1, crn: true },
+};
+function streamMeta(i) {
+  const s = streams[i], label = (s && s.label ? s.label : "Income " + (i + 1)) + " ($/yr)";
+  return { label, kind: "money", min: 0,
+    apply: (pp, v) => { if (pp.streams[i]) { pp.streams[i].amount = v; pp.streams[i].cola = true; } },
+    cur: p => p.streams[i] ? p.streams[i].amount : 0,
+    range: p => { const cur = p.streams[i] ? p.streams[i].amount : 0; return [0, Math.max(50000, Math.round(Math.max(p.spend, cur * 2) / 1000) * 1000)]; } };
+}
+function getMeta(key) { return key.indexOf("inc") === 0 ? streamMeta(+key.slice(3)) : SWEEP_META[key]; }
+function sweepFmt(meta, x, full) {
+  if (meta.kind === "money") return full ? fmtFull(x) : fmtMoney(x);
+  if (meta.kind === "pctDec") return x.toFixed(2) + "%";
+  if (meta.kind === "pctInt") return Math.round(x) + "%";
+  return String(Math.round(x));
+}
+function buildSweepOptions() {
+  const p = readParams(), sel = el("sweep-var"), prev = sel.value;
+  const staticKeys = Object.keys(SWEEP_META).filter(k => !SWEEP_META[k].when || SWEEP_META[k].when(p));
+  const incKeys = streams.map((s, i) => "inc" + i);
+  const keys = staticKeys.concat(incKeys);
+  sel.innerHTML = keys.map(k => `<option value="${k}">${escapeHtml(getMeta(k).label)}</option>`).join("");
+  sel.value = keys.includes(prev) ? prev : "spend";
+}
+function fillSweepRange() {
+  const meta = getMeta(el("sweep-var").value), p = readParams(), [a, b] = meta.range(p);
+  el("sweep-from").value = meta.kind === "money" ? commafy(a) : a;
+  el("sweep-to").value = meta.kind === "money" ? commafy(b) : b;
+}
+
+// ---------- Outcome render ----------
+function renderOutcome(r) {
+  el("prob").textContent = r.successPct.toFixed(1) + "%";
+  let color, label;
+  if (r.successPct >= 90) { color = "var(--good)"; label = "Very likely to last"; }
+  else if (r.successPct >= 80) { color = "var(--good)"; label = "Likely to last"; }
+  else if (r.successPct >= 65) { color = "var(--warn)"; label = "Uncertain — worth tightening"; }
+  else { color = "var(--danger)"; label = "At risk of depletion"; }
+  el("prob").style.color = color; el("verdict").textContent = label; el("verdict").style.color = color;
+  // Wilson 95% confidence interval for the success proportion (Monte Carlo sampling error)
+  const n = currentSims(), z = 1.96, ph = r.successPct / 100, denom = 1 + z * z / n;
+  const cen = (ph + z * z / (2 * n)) / denom, hw = (z / denom) * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n));
+  el("prob-ci").textContent = "95% CI " + (Math.max(0, cen - hw) * 100).toFixed(1) + "–" + (Math.min(1, cen + hw) * 100).toFixed(1) + "%";
+  el("meter-mk").style.left = "calc(" + Math.max(0, Math.min(100, r.successPct)) + "% - 1.5px)";
+  el("hz-label").textContent = r.retYears;
+  const stats = [];
+  if (r.A > 0) stats.push({ k: "Median nest egg at retirement", v: fmtMoney(r.medNest), sm: true });
+  stats.push({ k: "Median end balance", v: fmtMoney(r.medEnd) }, { k: "10th-pct end balance", v: fmtMoney(r.p10End) });
+  if (r.guard) stats.push({ k: "Median lean-year spend", v: fmtMoney(r.medLowSpend), sm: true });
+  else stats.push({ k: "Worst case", v: fmtMoney(r.worst) });
+  stats.push({ k: r.medDep ? "Median fail age" : "Failures", v: r.medDep ? ("Age " + (r.ca + r.medDep)) : "0", sm: true });
+  el("stats").innerHTML = stats.map(s => `<div class="stat"><div class="k">${s.k}</div><div class="v${s.sm ? " sm" : ""}">${s.v}</div></div>`).join("");
+}
+
+// ---------- Charts ----------
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+function niceMax(v) { if (v <= 0) return 1; const mag = Math.pow(10, Math.floor(Math.log10(v))), n = v / mag; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag; }
+let fanState = null;
+function renderFan(r) {
+  const svg = el("fan"); svg.innerHTML = "";
+  const W = 760, H = 380, m = { t: 14, r: 16, b: 34, l: 62 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, h = r.h, ymax = niceMax(r.ymax);
+  const xOf = y => m.l + (h === 0 ? 0 : (y / h) * iw), yOf = v => m.t + ih - (Math.min(v, ymax) / ymax) * ih;
+  const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
+  const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
+  for (let i = 0; i <= 5; i++) { const v = (ymax / 5) * i, yy = yOf(v); g.appendChild(svgEl("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy })); const t = svgEl("text", { x: m.l - 8, y: yy + 3.5, "text-anchor": "end" }); t.textContent = fmtMoney(v); ax.appendChild(t); }
+  const xstep = h <= 35 ? 5 : 10;
+  for (let y = 0; y <= h; y += xstep) { const t = svgEl("text", { x: xOf(y), y: H - m.b + 16, "text-anchor": "middle" }); t.textContent = r.ca + y; ax.appendChild(t); }
+  const band = (top, bot) => { let d = "M" + xOf(0) + "," + yOf(top[0]); for (let y = 1; y <= h; y++) d += "L" + xOf(y) + "," + yOf(top[y]); for (let y = h; y >= 0; y--) d += "L" + xOf(y) + "," + yOf(bot[y]); return d + "Z"; };
+  svg.appendChild(svgEl("path", { d: band(r.pcts.p90, r.pcts.p10), fill: "var(--band-outer)", opacity: .75 }));
+  svg.appendChild(svgEl("path", { d: band(r.pcts.p75, r.pcts.p25), fill: "var(--band-mid)", opacity: .8 }));
+  let md = "M" + xOf(0) + "," + yOf(r.pcts.p50[0]); for (let y = 1; y <= h; y++) md += "L" + xOf(y) + "," + yOf(r.pcts.p50[y]);
+  svg.appendChild(svgEl("path", { d: md, fill: "none", stroke: "var(--band-line)", "stroke-width": 2.2, "stroke-linejoin": "round" }));
+  if (r.A > 0) { const rx = xOf(r.A); svg.appendChild(svgEl("line", { x1: rx, x2: rx, y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: .5 })); const rl = svgEl("text", { x: rx + 4, y: m.t + 10, class: "axis-title" }); rl.setAttribute("font-weight", "600"); rl.textContent = "retires at " + r.retAge; svg.appendChild(rl); }
+  const xt = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 3, "text-anchor": "middle" }); xt.textContent = "Age"; svg.appendChild(xt);
+  const at = svgEl("text", { class: "axis-title", transform: `translate(14,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); at.textContent = "Balance (today's $)"; svg.appendChild(at);
+  const hoverLine = svgEl("line", { y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0 }); svg.appendChild(hoverLine);
+  const dot = svgEl("circle", { r: 3.5, fill: "var(--band-line)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
+  const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
+  fanState = { svg, W, m, iw, ih, h, xOf, yOf, r, hoverLine, dot, rect }; attachFanHover();
+}
+function attachFanHover() {
+  const st = fanState, tt = el("tt");
+  st.rect.addEventListener("mousemove", ev => {
+    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+    let y = Math.round((sx - st.m.l) / st.iw * st.h); y = Math.max(0, Math.min(st.h, y));
+    const xx = st.xOf(y);
+    st.hoverLine.setAttribute("x1", xx); st.hoverLine.setAttribute("x2", xx); st.hoverLine.setAttribute("opacity", 1);
+    st.dot.setAttribute("cx", xx); st.dot.setAttribute("cy", st.yOf(st.r.pcts.p50[y])); st.dot.setAttribute("opacity", 1);
+    tt.style.opacity = 1;
+    tt.innerHTML = `<div class="tt-t">Age ${st.r.ca + y}</div>90th <b>${fmtMoney(st.r.pcts.p90[y])}</b><br>Median <b>${fmtMoney(st.r.pcts.p50[y])}</b><br>10th <b>${fmtMoney(st.r.pcts.p10[y])}</b>`;
+    const tb = tt.getBoundingClientRect(); let lx = ev.clientX + 14; if (lx + tb.width > window.innerWidth - 8) lx = ev.clientX - tb.width - 14;
+    tt.style.left = lx + "px"; tt.style.top = (ev.clientY - tb.height - 6) + "px";
+  });
+  st.rect.addEventListener("mouseleave", () => { st.hoverLine.setAttribute("opacity", 0); st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
+}
+
+function renderSweep() {
+  const key = el("sweep-var").value, meta = getMeta(key), p = readParams(), nSims = currentSims();
+  let from = parseNum(el("sweep-from").value), to = parseNum(el("sweep-to").value);
+  let steps = Math.max(3, Math.min(120, Math.round(parseNum(el("sweep-steps").value)) || 41));
+  if (meta.min != null) from = Math.max(meta.min, from);
+  if (meta.max != null) to = Math.min(meta.max, to);
+  if (to <= from) to = from + (meta.kind === "money" ? 1000 : 1);
+  const xs = [], ys = [];
+  for (let i = 0; i < steps; i++) {
+    let val = from + (to - from) * (i / (steps - 1));
+    if (meta.int) val = Math.round(val);
+    const pp = Object.assign({}, p); pp.streams = p.streams.map(o => Object.assign({}, o)); meta.apply(pp, val);
+    if (meta.crn && (!IDX || idxSims !== nSims || idxBlock !== pp.blockLen)) buildIndex(nSims, pp.blockLen);
+    xs.push(val); ys.push(simSuccess(pp, nSims));
+  }
+  if (meta.crn) { if (!IDX || idxSims !== nSims || idxBlock !== p.blockLen) buildIndex(nSims, p.blockLen); } // restore matrix to current
+  drawSweep(xs, ys, meta, meta.cur(p));
+  buildSweepTable(xs, ys, meta);
+}
+let sweepState = null;
+function drawSweep(xs, ys, meta, curVal) {
+  const svg = el("sweep"); svg.innerHTML = "";
+  const W = 760, H = 340, m = { t: 16, r: 18, b: 40, l: 52 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, xmin = xs[0], xmax = xs[xs.length - 1];
+  const xOf = x => m.l + (xmax === xmin ? 0 : (x - xmin) / (xmax - xmin) * iw), yOf = y => m.t + ih - (y / 100) * ih;
+  const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
+  const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
+  for (let i = 0; i <= 5; i++) { const yv = i * 20, yy = yOf(yv); g.appendChild(svgEl("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy })); const t = svgEl("text", { x: m.l - 8, y: yy + 3.5, "text-anchor": "end" }); t.textContent = yv + "%"; ax.appendChild(t); }
+  for (let i = 0; i <= 6; i++) { const xv = xmin + (xmax - xmin) * i / 6, xx = xOf(xv); const t = svgEl("text", { x: xx, y: H - m.b + 16, "text-anchor": "middle" }); t.textContent = sweepFmt(meta, xv, false); ax.appendChild(t); }
+  svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: yOf(80), y2: yOf(80), stroke: "var(--good)", "stroke-width": 1, "stroke-dasharray": "2 4", opacity: .5 }));
+  let ad = "M" + xOf(xs[0]) + "," + yOf(0); for (let i = 0; i < xs.length; i++) ad += "L" + xOf(xs[i]) + "," + yOf(ys[i]); ad += "L" + xOf(xs[xs.length - 1]) + "," + yOf(0) + "Z";
+  svg.appendChild(svgEl("path", { d: ad, fill: "var(--brand-soft)", opacity: .7 }));
+  let d = "M" + xOf(xs[0]) + "," + yOf(ys[0]); for (let i = 1; i < xs.length; i++) d += "L" + xOf(xs[i]) + "," + yOf(ys[i]);
+  svg.appendChild(svgEl("path", { d, fill: "none", stroke: "var(--brand)", "stroke-width": 2.4, "stroke-linejoin": "round" }));
+  if (curVal >= xmin && curVal <= xmax) {
+    const cx = xOf(curVal);
+    svg.appendChild(svgEl("line", { x1: cx, x2: cx, y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: .55 }));
+    let cy = ys[0]; for (let i = 1; i < xs.length; i++) if (curVal >= xs[i - 1] && curVal <= xs[i]) { const f = (curVal - xs[i - 1]) / (xs[i] - xs[i - 1]); cy = ys[i - 1] + f * (ys[i] - ys[i - 1]); break; }
+    svg.appendChild(svgEl("circle", { cx, cy: yOf(cy), r: 5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 2 }));
+    const lbl = svgEl("text", { x: cx, y: m.t - 3, "text-anchor": "middle", class: "axis-title" }); lbl.setAttribute("font-weight", "600"); lbl.textContent = "now: " + cy.toFixed(0) + "%"; svg.appendChild(lbl);
+  }
+  const at = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }); at.textContent = meta.label; svg.appendChild(at);
+  const yt = svgEl("text", { class: "axis-title", transform: `translate(13,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = "Success probability"; svg.appendChild(yt);
+  const dot = svgEl("circle", { r: 4, fill: "var(--brand)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
+  const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
+  sweepState = { svg, W, m, iw, ih, xs, ys, xOf, yOf, meta, dot, rect }; attachSweepHover();
+}
+function attachSweepHover() {
+  const st = sweepState, tt = el("tt");
+  st.rect.addEventListener("mousemove", ev => {
+    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+    let best = 0, bd = Infinity; for (let i = 0; i < st.xs.length; i++) { const dx = Math.abs(st.xOf(st.xs[i]) - sx); if (dx < bd) { bd = dx; best = i; } }
+    st.dot.setAttribute("cx", st.xOf(st.xs[best])); st.dot.setAttribute("cy", st.yOf(st.ys[best])); st.dot.setAttribute("opacity", 1);
+    tt.style.opacity = 1;
+    tt.innerHTML = `<div class="tt-t">${escapeHtml(st.meta.label)}</div>${sweepFmt(st.meta, st.xs[best], false)} → <b>${st.ys[best].toFixed(1)}%</b>`;
+    const tb = tt.getBoundingClientRect(); let lx = ev.clientX + 14; if (lx + tb.width > window.innerWidth - 8) lx = ev.clientX - tb.width - 14;
+    tt.style.left = lx + "px"; tt.style.top = (ev.clientY - tb.height - 6) + "px";
+  });
+  st.rect.addEventListener("mouseleave", () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
+}
+function buildSweepTable(xs, ys, meta) {
+  let rows = "<tr><th>" + escapeHtml(meta.label) + "</th><th>Success</th></tr>";
+  const stride = Math.max(1, Math.round(xs.length / 20));
+  for (let i = 0; i < xs.length; i += stride) rows += `<tr><td>${sweepFmt(meta, xs[i], true)}</td><td>${ys[i].toFixed(1)}%</td></tr>`;
+  el("sweep-table").innerHTML = rows;
+}
+
+// ---------- Tornado: rank each assumption by how far it swings success over a plausible ± range ----------
+function tornadoData() {
+  const p = readParams(), n = currentSims(), base = simSuccess(p, n), rows = [];
+  const evalRow = (meta, lo, hi) => {
+    if (meta.min != null) { lo = Math.max(meta.min, lo); hi = Math.max(meta.min, hi); }
+    if (meta.max != null) { lo = Math.min(meta.max, lo); hi = Math.min(meta.max, hi); }
+    if (Math.abs(hi - lo) < 1e-9) return;
+    const pLo = Object.assign({}, p); pLo.streams = p.streams.map(o => Object.assign({}, o)); meta.apply(pLo, lo);
+    const pHi = Object.assign({}, p); pHi.streams = p.streams.map(o => Object.assign({}, o)); meta.apply(pHi, hi);
+    const sLo = simSuccess(pLo, n), sHi = simSuccess(pHi, n);
+    rows.push({ label: meta.label, meta, lo, hi, sLo, sHi, impact: Math.abs(sHi - sLo) });
+  };
+  for (const key of Object.keys(SWEEP_META)) {
+    const meta = SWEEP_META[key];
+    if (!meta.tw || (meta.when && !meta.when(p))) continue;
+    const [lo, hi] = meta.tw(p); evalRow(meta, lo, hi);
+  }
+  streams.forEach((s, i) => { const cur = p.streams[i] ? p.streams[i].amount : 0; if (cur > 0) evalRow(streamMeta(i), cur * .85, cur * 1.15); });
+  rows.sort((a, b) => b.impact - a.impact);
+  return { base, rows };
+}
+let tornadoState = null;
+function renderTornado() {
+  const svg = el("tornado"); svg.innerHTML = "";
+  const { base, rows } = tornadoData();
+  const W = 760, m = { t: 26, r: 20, b: 30, l: 150 }, rowH = 30, iw = W - m.l - m.r;
+  const H = m.t + rows.length * rowH + m.b;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  if (!rows.length) { const t = svgEl("text", { x: W / 2, y: 40, "text-anchor": "middle", class: "axis-title" }); t.textContent = "No adjustable assumptions to rank."; svg.appendChild(t); return; }
+  const xOf = v => m.l + v / 100 * iw, plotBottom = m.t + rows.length * rowH;
+  const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
+  for (let v = 0; v <= 100; v += 25) { const x = xOf(v); ax.appendChild(svgEl("line", { x1: x, y1: m.t, x2: x, y2: plotBottom, stroke: "var(--hairline)", "stroke-width": 1 })); const t = svgEl("text", { x, y: plotBottom + 16, "text-anchor": "middle" }); t.textContent = v + "%"; ax.appendChild(t); }
+  const bx = xOf(base);
+  svg.appendChild(svgEl("line", { x1: bx, y1: m.t - 6, x2: bx, y2: plotBottom, stroke: "var(--ink)", "stroke-width": 1.4, "stroke-dasharray": "4 3", opacity: .6 }));
+  const nowl = svgEl("text", { x: bx, y: m.t - 10, "text-anchor": "middle", class: "tor-val" }); nowl.setAttribute("fill", "var(--ink)"); nowl.setAttribute("font-weight", "600"); nowl.textContent = "now " + base.toFixed(0) + "%"; svg.appendChild(nowl);
+  const barH = 13;
+  rows.forEach((row, i) => {
+    const cy = m.t + i * rowH + rowH / 2, s0 = Math.min(row.sLo, row.sHi), s1 = Math.max(row.sLo, row.sHi);
+    const x0 = xOf(s0), x1 = xOf(s1), xb = Math.max(x0, Math.min(x1, bx));
+    if (xb > x0 + .5) svg.appendChild(svgEl("rect", { x: x0, y: cy - barH / 2, width: xb - x0, height: barH, fill: "var(--warn)", opacity: .72, rx: 2 }));
+    if (x1 > xb + .5) svg.appendChild(svgEl("rect", { x: xb, y: cy - barH / 2, width: x1 - xb, height: barH, fill: "var(--brand)", opacity: .72, rx: 2 }));
+    const nm = svgEl("text", { x: m.l - 10, y: cy + 3.5, "text-anchor": "end", class: "tor-name" }); nm.textContent = row.label; svg.appendChild(nm);
+    const lowerIn = row.sLo <= row.sHi ? row.lo : row.hi, higherIn = row.sLo <= row.sHi ? row.hi : row.lo;
+    const lv = svgEl("text", { x: x0 - 4, y: cy + 3.5, "text-anchor": "end", class: "tor-val" }); lv.textContent = sweepFmt(row.meta, lowerIn, false); svg.appendChild(lv);
+    const rv = svgEl("text", { x: x1 + 4, y: cy + 3.5, "text-anchor": "start", class: "tor-val" }); rv.textContent = sweepFmt(row.meta, higherIn, false); svg.appendChild(rv);
+  });
+  const rect = svgEl("rect", { x: 0, y: m.t, width: W, height: rows.length * rowH, fill: "transparent" }); svg.appendChild(rect);
+  tornadoState = { svg, W, H, m, rowH, rows, base, xOf, rect }; attachTornadoHover();
+}
+function attachTornadoHover() {
+  const st = tornadoState, tt = el("tt");
+  st.rect.addEventListener("mousemove", ev => {
+    const box = st.svg.getBoundingClientRect(), sy = (ev.clientY - box.top) / box.height * st.H;
+    let i = Math.floor((sy - st.m.t) / st.rowH);
+    if (i < 0 || i >= st.rows.length) { tt.style.opacity = 0; return; }
+    const r = st.rows[i], worse = r.sLo <= r.sHi ? { in: r.lo, s: r.sLo } : { in: r.hi, s: r.sHi }, better = r.sLo <= r.sHi ? { in: r.hi, s: r.sHi } : { in: r.lo, s: r.sLo };
+    tt.style.opacity = 1;
+    tt.innerHTML = `<div class="tt-t">${escapeHtml(r.label)}</div>${sweepFmt(r.meta, worse.in, false)} → <b>${worse.s.toFixed(1)}%</b><br>${sweepFmt(r.meta, better.in, false)} → <b>${better.s.toFixed(1)}%</b><br>swing <b>${r.impact.toFixed(1)} pts</b>`;
+    const tb = tt.getBoundingClientRect(); let lx = ev.clientX + 14; if (lx + tb.width > window.innerWidth - 8) lx = ev.clientX - tb.width - 14;
+    tt.style.left = lx + "px"; tt.style.top = (ev.clientY - tb.height - 6) + "px";
+  });
+  st.rect.addEventListener("mouseleave", () => { tt.style.opacity = 0; });
+}
+
+// ---------- Success-surface heatmap ----------
+function isDark() { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; }
+function heatRamp() { return isDark() ? [[24, 34, 54], [150, 163, 240]] : [[234, 237, 249], [33, 44, 102]]; }
+function lerpCol(a, b, t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`; }
+function buildAxisOptions(sel, defKey) {
+  const p = readParams(), prev = sel.value;
+  const staticKeys = Object.keys(SWEEP_META).filter(k => !SWEEP_META[k].when || SWEEP_META[k].when(p));
+  const keys = staticKeys.concat(streams.map((s, i) => "inc" + i));
+  sel.innerHTML = keys.map(k => `<option value="${k}">${escapeHtml(getMeta(k).label)}</option>`).join("");
+  sel.value = keys.includes(prev) ? prev : defKey;
+}
+function buildHeatOptions() {
+  buildAxisOptions(el("hx-var"), "spend");
+  buildAxisOptions(el("hy-var"), "start");
+}
+function fillHeatRange(axis) {
+  const meta = getMeta(el("h" + axis + "-var").value), p = readParams(), [a, b] = meta.range(p);
+  el("h" + axis + "-from").value = meta.kind === "money" ? commafy(a) : a;
+  el("h" + axis + "-to").value = meta.kind === "money" ? commafy(b) : b;
+}
+function axisValues(meta, fromEl, toEl, steps) {
+  let from = parseNum(el(fromEl).value), to = parseNum(el(toEl).value);
+  if (meta.min != null) from = Math.max(meta.min, from);
+  if (meta.max != null) to = Math.min(meta.max, to);
+  if (to <= from) to = from + (meta.kind === "money" ? 1000 : 1);
+  const vals = [];
+  for (let i = 0; i < steps; i++) { let v = from + (to - from) * (i / (steps - 1)); if (meta.int) v = Math.round(v); vals.push(v); }
+  return vals;
+}
+let heatState = null;
+function renderHeat() {
+  const svg = el("heat"); svg.innerHTML = "";
+  const xk = el("hx-var").value, yk = el("hy-var").value, xm = getMeta(xk), ym = getMeta(yk);
+  const W = 760, H = 470, pt = 16, pl = 66, pr = 18, ih = 300, iw = W - pl - pr;
+  if (xk === yk) { const t = svgEl("text", { x: W / 2, y: 150, "text-anchor": "middle", class: "axis-title" }); t.textContent = "Pick two different parameters for the X and Y axes."; svg.appendChild(t); return; }
+  const cols = Math.max(3, Math.min(50, Math.round(parseNum(el("hx-steps").value)) || 20));
+  const rows = Math.max(3, Math.min(36, Math.round(parseNum(el("hy-steps").value)) || 20));
+  const target = Math.max(0, Math.min(100, parseNum(el("h-target").value) || 0));
+  const p = readParams(), nSims = currentSims();
+  const xs = axisValues(xm, "hx-from", "hx-to", cols), ys = axisValues(ym, "hy-from", "hy-to", rows);
+  const needCrn = xm.crn || ym.crn, grid = [];
+  for (let j = 0; j < rows; j++) {
+    grid[j] = new Float64Array(cols);
+    for (let i = 0; i < cols; i++) {
+      const pp = Object.assign({}, p); pp.streams = p.streams.map(o => Object.assign({}, o));
+      xm.apply(pp, xs[i]); ym.apply(pp, ys[j]);
+      if (needCrn && idxBlock !== pp.blockLen) buildIndex(nSims, pp.blockLen);
+      grid[j][i] = simSuccess(pp, nSims);
+    }
+  }
+  if (needCrn && idxBlock !== p.blockLen) buildIndex(nSims, p.blockLen);
+  const ramp = heatRamp(), cellW = iw / cols, cellH = ih / rows;
+  const xpx = i => pl + i * cellW, ypxRow = j => pt + (rows - 1 - j) * cellH;
+  const cg = svgEl("g", {}); svg.appendChild(cg);
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++)
+    cg.appendChild(svgEl("rect", { x: xpx(i), y: ypxRow(j), width: cellW + .6, height: cellH + .6, fill: lerpCol(ramp[0], ramp[1], grid[j][i] / 100) }));
+  let fd = "";
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const a = grid[j][i] >= target;
+    if (i + 1 < cols && a !== (grid[j][i + 1] >= target)) { const x = xpx(i + 1), yt = ypxRow(j); fd += `M${x},${yt}L${x},${yt + cellH}`; }
+    if (j + 1 < rows && a !== (grid[j + 1][i] >= target)) { const y = ypxRow(j), xl = xpx(i); fd += `M${xl},${y}L${xl + cellW},${y}`; }
+  }
+  if (fd) svg.appendChild(svgEl("path", { d: fd, stroke: "var(--warn)", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round", opacity: .95 }));
+  const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
+  const nx = Math.min(6, cols - 1);
+  for (let t = 0; t <= nx; t++) { const i = Math.round(t / nx * (cols - 1)); const tx = svgEl("text", { x: xpx(i) + cellW / 2, y: pt + ih + 16, "text-anchor": "middle" }); tx.textContent = sweepFmt(xm, xs[i], false); ax.appendChild(tx); }
+  const ny = Math.min(6, rows - 1);
+  for (let t = 0; t <= ny; t++) { const j = Math.round(t / ny * (rows - 1)); const ty = svgEl("text", { x: pl - 8, y: ypxRow(j) + cellH / 2 + 3.5, "text-anchor": "end" }); ty.textContent = sweepFmt(ym, ys[j], false); ax.appendChild(ty); }
+  const xt = svgEl("text", { class: "axis-title", x: pl + iw / 2, y: pt + ih + 34, "text-anchor": "middle" }); xt.textContent = xm.label; svg.appendChild(xt);
+  const yt = svgEl("text", { class: "axis-title", transform: `translate(15,${pt + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = ym.label; svg.appendChild(yt);
+  const cxv = xm.cur(p), cyv = ym.cur(p);
+  if (cxv >= xs[0] && cxv <= xs[cols - 1] && cyv >= ys[0] && cyv <= ys[rows - 1]) {
+    const fi = (cxv - xs[0]) / (xs[cols - 1] - xs[0]) * (cols - 1), fj = (cyv - ys[0]) / (ys[rows - 1] - ys[0]) * (rows - 1);
+    const mx = pl + fi * cellW + cellW / 2, my = pt + (rows - 1 - fj) * cellH + cellH / 2;
+    svg.appendChild(svgEl("circle", { cx: mx, cy: my, r: 6, fill: "none", stroke: "var(--ink)", "stroke-width": 2 }));
+    svg.appendChild(svgEl("circle", { cx: mx, cy: my, r: 2, fill: "var(--ink)" }));
+  }
+  const defs = svgEl("defs", {}), grad = svgEl("linearGradient", { id: "hg", x1: "0", x2: "1", y1: "0", y2: "0" });
+  grad.appendChild(svgEl("stop", { offset: "0", "stop-color": lerpCol(ramp[0], ramp[1], 0) }));
+  grad.appendChild(svgEl("stop", { offset: "1", "stop-color": lerpCol(ramp[0], ramp[1], 1) }));
+  defs.appendChild(grad); svg.appendChild(defs);
+  const lx = pl, lw = 200, ly = pt + ih + 52;
+  const ltt = svgEl("text", { class: "axis-title", x: lx, y: ly - 6 }); ltt.textContent = "Success probability"; svg.appendChild(ltt);
+  svg.appendChild(svgEl("rect", { x: lx, y: ly, width: lw, height: 11, fill: "url(#hg)", rx: 2 }));
+  const la = svgEl("g", { class: "axis" }); svg.appendChild(la);
+  [0, 50, 100].forEach(v => { const t = svgEl("text", { x: lx + lw * v / 100, y: ly + 24, "text-anchor": "middle" }); t.textContent = v + "%"; la.appendChild(t); });
+  const tmx = lx + lw * target / 100;
+  svg.appendChild(svgEl("path", { d: `M${tmx},${ly - 2}L${tmx - 4},${ly - 8}L${tmx + 4},${ly - 8}Z`, fill: "var(--warn)" }));
+  const ftl = svgEl("text", { class: "axis-title", x: lx + lw + 16, y: ly + 9 }); ftl.setAttribute("fill", "var(--warn)"); ftl.textContent = "— target " + target + "%"; svg.appendChild(ftl);
+  const hi = svgEl("rect", { fill: "none", stroke: "var(--ink)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(hi);
+  const rect = svgEl("rect", { x: pl, y: pt, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
+  heatState = { svg, W, H, pl, pt, iw, ih, cols, rows, cellW, cellH, xs, ys, grid, xm, ym, hi, rect }; attachHeatHover();
+}
+function attachHeatHover() {
+  const st = heatState, tt = el("tt");
+  st.rect.addEventListener("mousemove", ev => {
+    const box = st.svg.getBoundingClientRect();
+    const sx = (ev.clientX - box.left) / box.width * st.W, sy = (ev.clientY - box.top) / box.height * st.H;
+    let i = Math.floor((sx - st.pl) / st.cellW); i = Math.max(0, Math.min(st.cols - 1, i));
+    let rf = Math.floor((sy - st.pt) / st.cellH); rf = Math.max(0, Math.min(st.rows - 1, rf)); const j = st.rows - 1 - rf;
+    st.hi.setAttribute("x", st.pl + i * st.cellW); st.hi.setAttribute("y", st.pt + rf * st.cellH); st.hi.setAttribute("width", st.cellW); st.hi.setAttribute("height", st.cellH); st.hi.setAttribute("opacity", 1);
+    tt.style.opacity = 1;
+    tt.innerHTML = `<div class="tt-t">${st.grid[j][i].toFixed(1)}% success</div>${escapeHtml(st.xm.label)}: <b>${sweepFmt(st.xm, st.xs[i], false)}</b><br>${escapeHtml(st.ym.label)}: <b>${sweepFmt(st.ym, st.ys[j], false)}</b>`;
+    const tb = tt.getBoundingClientRect(); let px = ev.clientX + 14; if (px + tb.width > window.innerWidth - 8) px = ev.clientX - tb.width - 14;
+    tt.style.left = px + "px"; tt.style.top = (ev.clientY - tb.height - 6) + "px";
+  });
+  st.rect.addEventListener("mouseleave", () => { st.hi.setAttribute("opacity", 0); tt.style.opacity = 0; });
+}
+
+// ---------- Sequence-of-returns render ----------
+let seqData = null, seqChartState = null;
+function renderSequence() { seqData = simSequence(readParams(), currentSims()); drawSequence(); }
+function drawSequence() {
+  if (!seqData) return;
+  const d = seqData;
+  el("seq-start").textContent = "your balance at retirement";
+  const shareEl = el("seq-share"), labEl = shareEl.nextElementSibling;
+  if (isNaN(d.seqShare) || d.failActual <= 0) { shareEl.textContent = "0"; labEl.innerHTML = "failures in these runs — nothing to attribute"; }
+  else { shareEl.textContent = Math.round(d.seqShare) + "%"; labEl.innerHTML = "of failures are caused by the <b>order</b> of returns"; }
+  const succ = d.successPct, mag = d.magFail, seq = d.seqFail;
+  el("seq-bar").innerHTML = `<div style="width:${succ}%;background:var(--good)"></div><div style="width:${mag}%;background:var(--faint)"></div><div style="width:${seq}%;background:var(--warn)"></div>`;
+  el("seq-legend").innerHTML =
+    `<span class="li"><span class="sw" style="background:var(--good)"></span>Survives <b>${succ.toFixed(1)}%</b></span>` +
+    `<span class="li"><span class="sw" style="background:var(--faint)"></span>Magnitude failure <b>${mag.toFixed(1)}%</b></span>` +
+    `<span class="li"><span class="sw" style="background:var(--warn)"></span>Sequence failure <b>${seq.toFixed(1)}%</b></span>`;
+  const target = Math.max(1, Math.min(100, parseNum(el("seq-target").value) || 95));
+  const safeYear = safeYearFrom(d.cond, target);
+  drawSeqChart(d, target, safeYear);
+  if (d.failActual <= 0) el("seq-summary").textContent = "No failures in these runs, so there's no sequence risk to isolate — try higher spending, retiring earlier, or Blocks sampling to surface it.";
+  else if (safeYear != null) el("seq-summary").innerHTML = `Reach <b>age ${d.ca + safeYear}</b> with your inflation-adjusted balance still at or above what you had at retirement, and success is at least ${target}% (it's ${Math.round(d.cond[safeYear])}% there) — your breathe-easy point. Meanwhile ${Math.round(d.seqShare)}% of the failure risk comes purely from the order of returns.`;
+  else el("seq-summary").innerHTML = `Even holding at or above your retirement balance, success doesn't reach ${target}% before age ${d.ca + d.h} — the plan stays return-sensitive throughout.${isNaN(d.seqShare) ? "" : " " + Math.round(d.seqShare) + "% of failures trace to return order."}`;
+  const p = readParams();
+  el("seq-note").innerHTML = p.blockLen > 1 ? `Using ${p.blockLen}-year blocks — clustered downturns are included.` : `Tip: sequence risk is about clustered downturns. Switch <b>Return sampling</b> to Blocks (in Nerd stuff) for realistic recession clustering.`;
+}
+function drawSeqChart(d, target, safeYear) {
+  const svg = el("seq-chart"); svg.innerHTML = "";
+  const W = 760, H = 300, m = { t: 16, r: 18, b: 40, l: 46 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const A = d.A, T = d.h, ca = d.ca, span = Math.max(1, T - A);
+  const xOf = y => m.l + (y - A) / span * iw, yOf = v => m.t + ih - (v / 100) * ih;
+  const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
+  const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
+  for (let i = 0; i <= 5; i++) { const yv = i * 20, yy = yOf(yv); g.appendChild(svgEl("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy })); const t = svgEl("text", { x: m.l - 8, y: yy + 3.5, "text-anchor": "end" }); t.textContent = yv + "%"; ax.appendChild(t); }
+  const xstep = span <= 35 ? 5 : 10;
+  for (let y = A; y <= T; y += xstep) { const t = svgEl("text", { x: xOf(y), y: H - m.b + 16, "text-anchor": "middle" }); t.textContent = ca + y; ax.appendChild(t); }
+  svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: yOf(target), y2: yOf(target), stroke: "var(--good)", "stroke-width": 1, "stroke-dasharray": "3 3", opacity: .7 }));
+  const tl = svgEl("text", { class: "axis-title", x: W - m.r, y: yOf(target) - 4, "text-anchor": "end" }); tl.setAttribute("fill", "var(--good)"); tl.textContent = target + "% target"; svg.appendChild(tl);
+  let dp = "", started = false;
+  for (let N = A; N <= T; N++) { const v = d.cond[N]; if (isNaN(v)) { started = false; continue; } dp += (started ? "L" : "M") + xOf(N) + "," + yOf(v); started = true; }
+  svg.appendChild(svgEl("path", { d: dp, fill: "none", stroke: "var(--brand)", "stroke-width": 2.4, "stroke-linejoin": "round" }));
+  if (safeYear != null) {
+    const cx = xOf(safeYear);
+    svg.appendChild(svgEl("line", { x1: cx, x2: cx, y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: .55 }));
+    svg.appendChild(svgEl("circle", { cx, cy: yOf(d.cond[safeYear]), r: 5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 2 }));
+    const lbl = svgEl("text", { x: cx + (cx > W / 2 ? -8 : 8), y: m.t + 8, "text-anchor": cx > W / 2 ? "end" : "start", class: "axis-title" }); lbl.setAttribute("font-weight", "600"); lbl.textContent = "safe from age " + (ca + safeYear); svg.appendChild(lbl);
+  }
+  const yt = svgEl("text", { class: "axis-title", transform: `translate(13,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = "Success if on track"; svg.appendChild(yt);
+  const xt = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }); xt.textContent = "Age (still at or above your retirement balance)"; svg.appendChild(xt);
+  const dot = svgEl("circle", { r: 4, fill: "var(--brand)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
+  const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
+  seqChartState = { svg, W, m, iw, ih, A, T, span, ca, xOf, yOf, d, dot, rect }; attachSeqHover();
+}
+function attachSeqHover() {
+  const st = seqChartState, tt = el("tt");
+  st.rect.addEventListener("mousemove", ev => {
+    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+    let N = st.A + Math.round((sx - st.m.l) / st.iw * st.span); N = Math.max(st.A, Math.min(st.T, N));
+    const v = st.d.cond[N];
+    if (isNaN(v)) { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; return; }
+    st.dot.setAttribute("cx", st.xOf(N)); st.dot.setAttribute("cy", st.yOf(v)); st.dot.setAttribute("opacity", 1);
+    tt.style.opacity = 1;
+    tt.innerHTML = `<div class="tt-t">Age ${st.ca + N}</div>Success if on track <b>${v.toFixed(1)}%</b><br>${st.d.onFrac[N].toFixed(0)}% of paths on track`;
+    const tb = tt.getBoundingClientRect(); let lx = ev.clientX + 14; if (lx + tb.width > window.innerWidth - 8) lx = ev.clientX - tb.width - 14;
+    tt.style.left = lx + "px"; tt.style.top = (ev.clientY - tb.height - 6) + "px";
+  });
+  st.rect.addEventListener("mouseleave", () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
+}
+
+// ---------- Orchestration ----------
+function syncLabels() {
+  const p = readParams();
+  el("start-v").textContent = fmtMoney(p.start);
+  el("spend-v").textContent = fmtMoney(p.spend);
+  el("cur-age-v").textContent = p.curAge;
+  el("ret-age-v").textContent = p.retAge;
+  el("end-age-v").textContent = p.endAge;
+  el("contrib-v").textContent = fmtMoney(p.contribution);
+  const A = Math.max(0, p.retAge - p.curAge), R = Math.max(1, Math.max(p.retAge, p.curAge) + 1 <= p.endAge ? p.endAge - Math.max(p.curAge, p.retAge) : 1);
+  el("ret-age-hint").textContent = A > 0 ? `${A} yrs saving, then ${R} yrs retired` : `Already retired — ${R} yrs to fund`;
+  el("stock-v").textContent = (p.stock * 100).toFixed(0);
+  el("bond-v").textContent = (100 - p.stock * 100).toFixed(0);
+  el("fee-v").textContent = (p.fee * 100).toFixed(2).replace(/0$/, "");
+  el("tax-v").textContent = el("tax").value;
+  el("g-band-v").textContent = (p.gBand * 100).toFixed(0);
+  el("g-step-v").textContent = (p.gStep * 100).toFixed(0);
+  el("g-floor-v").textContent = (p.gFloor * 100).toFixed(0);
+  el("g-ceiling-v").textContent = (p.gCeiling * 100).toFixed(0);
+  el("glide-start-v").textContent = (p.glideStart * 100).toFixed(0);
+  el("glide-end-v").textContent = (p.glideEnd * 100).toFixed(0);
+  el("block-len-v").textContent = el("block-len").value;
+  const tot = streams.reduce((a, s) => a + (+s.amount || 0), 0);
+  el("inc-sum").textContent = tot > 0 ? fmtMoney(tot) + "/yr" : "";
+}
+function toggleModePanels() {
+  el("contrib-field").hidden = !(+el("ret-age").value > +el("cur-age").value);
+  el("guardrail-fields").hidden = el("spend-mode").value !== "guardrails";
+  const glide = el("alloc-mode").value === "glide";
+  el("glide-alloc").hidden = !glide; el("fixed-alloc").hidden = glide;
+  el("block-field").hidden = el("sample-mode").value !== "blocks";
+}
+let pending = null;
+// Light path: the headline success number + balance fan. Cheap enough to run live while dragging.
+function recomputeLight() {
+  syncLabels();
+  const p = readParams(), nSims = currentSims();
+  if (!IDX || idxSims !== nSims || idxBlock !== p.blockLen) buildIndex(nSims, p.blockLen);
+  const r = simFull(p, nSims);
+  el("run-note").textContent = nSims.toLocaleString("en-US") + " sims · " + (p.blockLen > 1 ? p.blockLen + "-yr blocks" : "iid") + " · 1928–2025";
+  renderOutcome(r); renderFan(r);
+}
+// Heavy path: the sequence card, sensitivity sweep, and heatmap — dozens/hundreds of extra simulation runs.
+function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); renderHeat(); }
+function recompute() { recomputeLight(); recomputeHeavy(); }
+// While a slider is moving, update the number + fan every frame, but defer the heavy charts until it settles.
+let liveRAF = null, heavyTimer = null;
+function scheduleLive() {
+  if (liveRAF) cancelAnimationFrame(liveRAF);
+  liveRAF = requestAnimationFrame(() => { liveRAF = null; recomputeLight(); });
+  if (heavyTimer) clearTimeout(heavyTimer);
+  heavyTimer = setTimeout(() => { heavyTimer = null; recomputeHeavy(); }, 150);
+}
+function debounced() { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(recompute); }
+function debouncedSweep() { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(renderSweep); }
+function debouncedHeat() { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(renderHeat); }
+
+function attachMoney(id) { const e = el(id); e.addEventListener("blur", () => { e.value = commafy(parseNum(e.value)); recompute(); }); e.addEventListener("input", scheduleLive); }
+["start", "spend", "contrib"].forEach(attachMoney);
+["stock", "fee", "tax", "g-band", "g-step", "g-floor", "g-ceiling", "glide-start", "glide-end", "block-len"].forEach(id => el(id).addEventListener("input", scheduleLive));
+["cur-age", "ret-age", "end-age"].forEach(id => el(id).addEventListener("input", () => { toggleModePanels(); scheduleLive(); }));
+el("sims").addEventListener("change", debounced);
+["spend-mode", "alloc-mode", "sample-mode"].forEach(id => el(id).addEventListener("change", () => { toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y"); debounced(); }));
+el("hx-var").addEventListener("change", () => { fillHeatRange("x"); renderHeat(); });
+el("hy-var").addEventListener("change", () => { fillHeatRange("y"); renderHeat(); });
+["hx-from", "hx-to", "hx-steps", "hy-from", "hy-to", "hy-steps", "h-target"].forEach(id => el(id).addEventListener("input", debouncedHeat));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderHeat());
+new MutationObserver(() => renderHeat()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+el("reshuffle").addEventListener("click", () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; buildIndex(currentSims(), readParams().blockLen); recompute(); });
+el("sweep-var").addEventListener("change", () => { fillSweepRange(); renderSweep(); });
+["sweep-from", "sweep-to", "sweep-steps"].forEach(id => el(id).addEventListener("input", debouncedSweep));
+el("seq-target").addEventListener("input", () => { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(drawSequence); });
+el("add-stream").addEventListener("click", () => {
+  streams.push({ label: streams.length === 0 ? "Pension" : "Income " + (streams.length + 1), amount: 0, from: el("ret-age").value, to: "", cola: false });
+  renderStreams(); buildSweepOptions(); buildHeatOptions(); recompute();
+});
+
+// ---------- Scenarios: presets, save-as-default, shareable link/code ----------
+const BUILTIN = { v: 2, start: 1500000, spend: 70000, ca: 65, ra: 65, ea: 95, ct: 0, fee: 0.2, tx: 0, sm: "fixed", gb: 20, gs: 10, gf: 80, gc: 120, am: "fixed", stk: 60, gsv: 60, gev: 30, smp: "iid", bl: 5, sims: 1000, st: [{ l: "Pension", a: 0, f: "65", t: "", c: 0 }] };
+const PRESETS = {
+  p_balanced: Object.assign({}, BUILTIN, { st: [] }),
+  p_lean: Object.assign({}, BUILTIN, { start: 900000, spend: 40000, stk: 55, st: [] }),
+  p_fat: Object.assign({}, BUILTIN, { start: 3000000, spend: 140000, stk: 65, st: [] }),
+  p_coast: Object.assign({}, BUILTIN, { ca: 55, ra: 65, ea: 95, start: 500000, spend: 60000, ct: 30000, stk: 75, gsv: 80, gev: 40, am: "glide", st: [{ l: "Social Security", a: 30000, f: "67", t: "", c: 1 }] }),
+};
+function readScenario() {
+  return {
+    v: 2,
+    start: parseNum(el("start").value), spend: parseNum(el("spend").value),
+    ca: +el("cur-age").value, ra: +el("ret-age").value, ea: +el("end-age").value, ct: parseNum(el("contrib").value),
+    fee: +el("fee").value, tx: +el("tax").value,
+    sm: el("spend-mode").value, gb: +el("g-band").value, gs: +el("g-step").value, gf: +el("g-floor").value, gc: +el("g-ceiling").value,
+    am: el("alloc-mode").value, stk: +el("stock").value, gsv: +el("glide-start").value, gev: +el("glide-end").value,
+    smp: el("sample-mode").value, bl: +el("block-len").value, sims: +el("sims").value,
+    st: streams.map(s => ({ l: s.label, a: +s.amount || 0, f: String(s.from), t: s.to == null ? "" : String(s.to), c: s.cola ? 1 : 0 })),
+  };
+}
+function applyScenario(o) {
+  if (!o) return;
+  if (o.ca == null) { // migrate v1 (retirement-relative years) -> age basis anchored at age 65
+    const b = 65;
+    o = Object.assign({}, o, { ca: b, ra: b, ea: b + (o.horizon || 30), ct: 0,
+      st: (o.st || []).map(s => ({ l: s.l, a: s.a, c: s.c, f: String(b + (parseNum(s.f) || 0)), t: (s.t == null || s.t === "") ? "" : String(b + parseNum(s.t)) })) });
+  }
+  const set = (id, v) => { if (v != null) el(id).value = v; };
+  if (o.start != null) el("start").value = commafy(parseNum(o.start));
+  if (o.spend != null) el("spend").value = commafy(parseNum(o.spend));
+  if (o.ct != null) el("contrib").value = commafy(parseNum(o.ct));
+  set("cur-age", o.ca); set("ret-age", o.ra); set("end-age", o.ea);
+  set("fee", o.fee); set("tax", o.tx);
+  set("spend-mode", o.sm); set("g-band", o.gb); set("g-step", o.gs); set("g-floor", o.gf); set("g-ceiling", o.gc);
+  set("alloc-mode", o.am); set("stock", o.stk); set("glide-start", o.gsv); set("glide-end", o.gev);
+  set("sample-mode", o.smp); set("block-len", o.bl); if (o.sims != null) el("sims").value = String(o.sims);
+  if (Array.isArray(o.st)) streams = o.st.map(s => ({ label: s.l != null ? s.l : "Income", amount: +s.a || 0, from: String(s.f != null ? s.f : ""), to: s.t == null ? "" : String(s.t), cola: !!s.c }));
+  renderStreams();
+  toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y");
+  recompute();
+}
+function encodeScenario(o) { try { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); } catch (e) { return ""; } }
+function decodeScenario(s) { try { s = s.replace(/-/g, "+").replace(/_/g, "/"); return JSON.parse(decodeURIComponent(escape(atob(s)))); } catch (e) { return null; } }
+function shareUrl(code) { return /^https?:$/.test(location.protocol) ? location.origin + location.pathname + "#s=" + code : null; }
+let toastT = null;
+function toast(msg) { const t = el("toast"); t.textContent = msg; t.classList.add("show"); if (toastT) clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2800); }
+async function copyText(txt, okMsg) { try { await navigator.clipboard.writeText(txt); toast(okMsg); } catch (e) { el("scen-code").value = txt; el("scen-more").open = true; toast("Copy it from the box below."); } }
+function readableHash() {
+  const tryOne = fn => { try { const v = fn(); return v && v.indexOf("s=") >= 0 ? v : ""; } catch (e) { return ""; } };
+  return tryOne(() => location.hash) || tryOne(() => window.parent.location.hash) || tryOne(() => window.top.location.hash) || "";
+}
+function loadInitial() {
+  let o = null;
+  const h = readableHash(), idx = h.indexOf("s=");
+  if (idx >= 0) o = decodeScenario(h.slice(idx + 2));
+  if (!o) { try { const ls = localStorage.getItem("mc_default"); if (ls) o = JSON.parse(ls); } catch (e) {} }
+  if (o) applyScenario(o); else recompute();
+}
+el("preset").addEventListener("change", e => { const k = e.target.value; if (PRESETS[k]) { applyScenario(PRESETS[k]); toast("Preset loaded."); } e.target.value = ""; });
+el("save-default").addEventListener("click", () => { try { localStorage.setItem("mc_default", JSON.stringify(readScenario())); toast("Saved — this browser opens with these numbers."); } catch (e) { toast("Storage is blocked here — use Copy link instead."); } });
+el("copy-code").addEventListener("click", () => { const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copyText(code, "Code copied — also shown below, ready to send."); });
+el("load-code").addEventListener("click", () => { let s = (el("scen-code").value || "").trim(); if (!s) { toast("Paste a link or code first."); return; } const i = s.indexOf("s="); if (i >= 0) s = s.slice(i + 2); const o = decodeScenario(s); if (o) { applyScenario(o); toast("Scenario loaded."); } else toast("Couldn't read that code."); });
+el("reset-default").addEventListener("click", () => { try { localStorage.removeItem("mc_default"); } catch (e) {} if (/^https?:$/.test(location.protocol)) history.replaceState(null, "", location.pathname); applyScenario(BUILTIN); toast("Reset to built-in defaults."); });
+
+// init
+renderStreams();
+toggleModePanels();
+buildSweepOptions();
+fillSweepRange();
+buildHeatOptions();
+fillHeatRange("x");
+fillHeatRange("y");
+loadInitial();
+</script>
+
+</body>
+</html>
