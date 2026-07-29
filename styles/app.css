@@ -154,6 +154,7 @@
   @media (max-width: 620px) { .heat-controls { grid-template-columns: 1fr 1fr; } }
   .heat-controls .field { margin: 0; }
   .heat-controls label { font-size: 11px; }
+  .btn.heat-swap { width: auto; flex: 0 0 auto; align-self: center; white-space: nowrap; }
 
   .seq-attr { display: grid; grid-template-columns: 158px 1fr; gap: 22px; align-items: center; }
   @media (max-width: 560px) { .seq-attr { grid-template-columns: 1fr; gap: 14px; } }

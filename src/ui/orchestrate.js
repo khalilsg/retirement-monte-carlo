@@ -81,6 +81,11 @@ function attachEvents() {
   ["spend-mode", "alloc-mode", "sample-mode"].forEach(id => el(id).addEventListener("change", () => { toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y"); debounced(); }));
   el("hx-var").addEventListener("change", () => { fillHeatRange("x"); renderHeat(); });
   el("hy-var").addEventListener("change", () => { fillHeatRange("y"); renderHeat(); });
+  el("heat-swap").addEventListener("click", () => {
+    [["hx-var", "hy-var"], ["hx-from", "hy-from"], ["hx-to", "hy-to"], ["hx-steps", "hy-steps"]]
+      .forEach(([a, b]) => { const t = el(a).value; el(a).value = el(b).value; el(b).value = t; });
+    renderHeat();
+  });
   ["hx-from", "hx-to", "hx-steps", "hy-from", "hy-to", "hy-steps", "h-target"].forEach(id => el(id).addEventListener("input", debouncedHeat));
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => renderHeat());
   new MutationObserver(() => renderHeat()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
