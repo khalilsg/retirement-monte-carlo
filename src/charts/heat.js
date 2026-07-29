@@ -1,7 +1,7 @@
 // Success-surface heatmap: success probability across two chosen assumptions, with
 // a target-frontier contour and a "now" marker.
 import { el } from "../dom.js";
-import { parseNum, escapeHtml } from "../format.js";
+import { parseNum, escapeHtml, inputVal } from "../format.js";
 import { svgEl } from "./svg.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -15,7 +15,7 @@ function heatRamp() { return isDark() ? [[24, 34, 54], [150, 163, 240]] : [[234,
 function lerpCol(a, b, t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`; }
 
 function axisValues(meta, fromEl, toEl, steps) {
-  let from = parseNum(el(fromEl).value), to = parseNum(el(toEl).value);
+  let from = parseNum(inputVal(el(fromEl))), to = parseNum(inputVal(el(toEl)));
   if (meta.min != null) from = Math.max(meta.min, from);
   if (meta.max != null) to = Math.min(meta.max, to);
   if (to <= from) to = from + (meta.kind === "money" ? 1000 : 1);

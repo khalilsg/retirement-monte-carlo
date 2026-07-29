@@ -21,7 +21,7 @@ export function renderOutcome(r) {
   const stats = [];
   if (r.A > 0) stats.push({ k: "Median nest egg at retirement", v: fmtMoney(r.medNest), sm: true });
   stats.push({ k: "Median end balance", v: fmtMoney(r.medEnd) }, { k: "10th-pct end balance", v: fmtMoney(r.p10End) });
-  if (r.guard) stats.push({ k: "Median lean-year spend", v: fmtMoney(r.medLowSpend), sm: true });
+  if (r.guard) stats.push({ k: "Median lean-year spend", v: fmtMoney(r.medLowSpend, true), sm: true });
   else stats.push({ k: "Worst case", v: fmtMoney(r.worst) });
   stats.push({ k: r.medDep ? "Median fail age" : "Failures", v: r.medDep ? ("Age " + (r.ca + r.medDep)) : "0", sm: true });
   el("stats").innerHTML = stats.map(s => `<div class="stat"><div class="k">${s.k}</div><div class="v${s.sm ? " sm" : ""}">${s.v}</div></div>`).join("");

@@ -2,9 +2,10 @@
 // object, syncing live value labels, and building the sensitivity-tool dropdowns.
 // Everything numeric is driven by the PARAMS registry (see config/parameters.js).
 import { el } from "../dom.js";
-import { parseNum, commafy, escapeHtml, fmtMoney } from "../format.js";
+import { parseNum, commafy, escapeHtml, fmtMoney, inputVal, isPrivate, setPrivacyUnit } from "../format.js";
 import { PARAM_FIELDS, LABEL_FIELDS, SWEEP_META, getMeta } from "../config/parameters.js";
 import { debounced, scheduleTyping, recompute } from "./orchestrate.js";
+import { setMoneyInput, refreshMasks, syncPrivacyNote } from "./privacy.js";
 
 // ---------- Income-stream state ----------
 let streams = [{ label: "Pension", amount: 0, from: "65", to: "", cola: false }];
@@ -19,7 +20,7 @@ export function renderStreams() {
         <input type="text" class="s-label" data-i="${i}" value="${escapeHtml(s.label)}" aria-label="Income label">
         <button class="s-del" data-i="${i}" title="Remove" aria-label="Remove income stream">&times;</button>
       </div>
-      <div class="input-money"><input type="text" inputmode="numeric" class="money s-amount" data-i="${i}" value="${commafy(s.amount)}" aria-label="Annual amount"></div>
+      <div class="input-money"><input type="text" inputmode="numeric" class="money s-amount" data-priv-kind="flow" data-i="${i}" value="${commafy(s.amount)}" aria-label="Annual amount"></div>
       <div class="stream-grid">
         <label class="mini">From age<input type="text" inputmode="numeric" class="s-from" data-i="${i}" value="${escapeHtml(s.from)}"></label>
         <label class="mini">To age<input type="text" inputmode="numeric" class="s-to" data-i="${i}" value="${escapeHtml(s.to)}" placeholder="life"></label>
@@ -32,7 +33,7 @@ export function renderStreams() {
   });
   host.querySelectorAll(".s-amount").forEach(e => {
     e.addEventListener("input", ev => { streams[+ev.target.dataset.i].amount = parseNum(ev.target.value); scheduleTyping(); });
-    e.addEventListener("blur", ev => { ev.target.value = commafy(parseNum(ev.target.value)); });
+    e.addEventListener("blur", ev => { if (!isPrivate()) ev.target.value = commafy(parseNum(ev.target.value)); });
   });
   host.querySelectorAll(".s-from").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].from = ev.target.value; scheduleTyping(); }));
   host.querySelectorAll(".s-to").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].to = ev.target.value; scheduleTyping(); }));
@@ -44,6 +45,7 @@ export function renderStreams() {
     if (el("hy-var").value.startsWith("inc")) el("hy-var").value = "start";
     renderStreams(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y"); recompute();
   }));
+  refreshMasks();
 }
 
 // Normalize the raw stream inputs into the numeric shape the engine expects.
@@ -58,7 +60,7 @@ export function normStreams() {
 
 // ---------- Reading params from the DOM ----------
 export function readParams() {
-  const getVal = id => el(id).value;
+  const getVal = id => inputVal(el(id));
   const p = {};
   for (const e of PARAM_FIELDS) p[e.param] = e.readParam ? e.readParam(getVal) : e.read(getVal(e.el));
   p.streams = normStreams();
@@ -69,6 +71,9 @@ export function currentSims() { return +el("sims").value; }
 // ---------- Live value labels ----------
 export function syncLabels() {
   const p = readParams();
+  // Anchor private mode's reference amount before anything formats a figure.
+  setPrivacyUnit(p.start, p.spend);
+  syncPrivacyNote();
   for (const e of LABEL_FIELDS) el(e.label.id).textContent = e.labelText(p[e.param]);
   // Derived / non-generic labels:
   el("bond-v").textContent = (100 - p.stock * 100).toFixed(0);
@@ -76,7 +81,8 @@ export function syncLabels() {
   const A = Math.max(0, p.retAge - p.curAge), R = Math.max(1, Math.max(p.retAge, p.curAge) + 1 <= p.endAge ? p.endAge - Math.max(p.curAge, p.retAge) : 1);
   el("ret-age-hint").textContent = A > 0 ? `${A} yrs saving, then ${R} yrs retired` : `Already retired — ${R} yrs to fund`;
   const tot = streams.reduce((a, s) => a + (+s.amount || 0), 0);
-  el("inc-sum").textContent = tot > 0 ? fmtMoney(tot) + "/yr" : "";
+  el("inc-sum").textContent = tot > 0 ? fmtMoney(tot, true) + "/yr" : "";
+  refreshMasks();
 }
 
 // Show/hide the panels tied to the current mode selects.
@@ -104,8 +110,9 @@ export function buildSweepOptions() {
 }
 export function fillSweepRange() {
   const p = readParams(), meta = getMeta(el("sweep-var").value, p.streams), [a, b] = meta.range(p);
-  el("sweep-from").value = meta.kind === "money" ? commafy(a) : a;
-  el("sweep-to").value = meta.kind === "money" ? commafy(b) : b;
+  const money = meta.kind === "money", kind = money ? (meta.flow ? "flow" : "stock") : null;
+  setMoneyInput(el("sweep-from"), String(money ? commafy(a) : a), kind);
+  setMoneyInput(el("sweep-to"), String(money ? commafy(b) : b), kind);
 }
 export function buildHeatOptions() {
   const p = readParams(), keys = optionKeys(p);
@@ -114,6 +121,7 @@ export function buildHeatOptions() {
 }
 export function fillHeatRange(axis) {
   const p = readParams(), meta = getMeta(el("h" + axis + "-var").value, p.streams), [a, b] = meta.range(p);
-  el("h" + axis + "-from").value = meta.kind === "money" ? commafy(a) : a;
-  el("h" + axis + "-to").value = meta.kind === "money" ? commafy(b) : b;
+  const money = meta.kind === "money", kind = money ? (meta.flow ? "flow" : "stock") : null;
+  setMoneyInput(el("h" + axis + "-from"), String(money ? commafy(a) : a), kind);
+  setMoneyInput(el("h" + axis + "-to"), String(money ? commafy(b) : b), kind);
 }

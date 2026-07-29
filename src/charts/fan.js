@@ -1,7 +1,7 @@
 // Balance-over-time fan chart: percentile bands (10–90 / 25–75) and the median line,
 // with a retirement marker and a hover readout.
 import { el } from "../dom.js";
-import { fmtMoney } from "../format.js";
+import { fmtMoney, isPrivate } from "../format.js";
 import { svgEl, niceMax, tooltip, placeTooltip } from "./svg.js";
 
 let fanState = null;
@@ -23,7 +23,7 @@ export function renderFan(r) {
   svg.appendChild(svgEl("path", { d: md, fill: "none", stroke: "var(--band-line)", "stroke-width": 2.2, "stroke-linejoin": "round" }));
   if (r.A > 0) { const rx = xOf(r.A); svg.appendChild(svgEl("line", { x1: rx, x2: rx, y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: .5 })); const rl = svgEl("text", { x: rx + 4, y: m.t + 10, class: "axis-title" }); rl.setAttribute("font-weight", "600"); rl.textContent = "retires at " + r.retAge; svg.appendChild(rl); }
   const xt = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 3, "text-anchor": "middle" }); xt.textContent = "Age"; svg.appendChild(xt);
-  const at = svgEl("text", { class: "axis-title", transform: `translate(14,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); at.textContent = "Balance (today's $)"; svg.appendChild(at);
+  const at = svgEl("text", { class: "axis-title", transform: `translate(14,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); at.textContent = isPrivate() ? "Balance (× today's)" : "Balance (today's $)"; svg.appendChild(at);
   const hoverLine = svgEl("line", { y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0 }); svg.appendChild(hoverLine);
   const dot = svgEl("circle", { r: 3.5, fill: "var(--band-line)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
   const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);

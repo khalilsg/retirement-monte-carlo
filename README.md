@@ -14,6 +14,7 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
 - **Scenarios** — presets, save-as-default, and shareable codes/links
 - **Monte Carlo confidence interval** on the headline result
+- **Private mode** — hides every dollar amount for screen sharing: balances render as a multiple (×) of your balance today, annual amounts as a percentage of it, so charts and ratios stay fully readable
 
 ## Tech
 No build step, no dependencies, no backend — plain HTML, CSS, and native ES modules. Because it uses ES modules, serve it over HTTP (e.g. `python3 -m http.server`) rather than opening `index.html` via `file://`.
@@ -36,6 +37,7 @@ src/
   charts/             one module per visualization (fan, sweep, tornado, heat,
                       sequence) + shared svg.js helpers
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
+                      privacy.js — private-mode toggle, input masking, leak guards
 ```
 
 ### Adding a tunable assumption

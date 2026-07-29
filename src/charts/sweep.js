@@ -1,7 +1,7 @@
 // Sensitivity sweep: vary one assumption across a range (holding the rest fixed),
 // plot the resulting success curve with a "now" marker, and offer a data table.
 import { el } from "../dom.js";
-import { parseNum, escapeHtml } from "../format.js";
+import { parseNum, escapeHtml, inputVal } from "../format.js";
 import { svgEl, tooltip, placeTooltip } from "./svg.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -10,7 +10,7 @@ import { simSuccess } from "../engine/simulate.js";
 
 export function renderSweep() {
   const key = el("sweep-var").value, p = readParams(), meta = getMeta(key, p.streams), nSims = currentSims();
-  let from = parseNum(el("sweep-from").value), to = parseNum(el("sweep-to").value);
+  let from = parseNum(inputVal(el("sweep-from"))), to = parseNum(inputVal(el("sweep-to")));
   let steps = Math.max(3, Math.min(120, Math.round(parseNum(el("sweep-steps").value)) || 41));
   if (meta.min != null) from = Math.max(meta.min, from);
   if (meta.max != null) to = Math.min(meta.max, to);

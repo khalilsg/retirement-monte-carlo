@@ -2,7 +2,7 @@
 // driven by the same PARAMS registry as everything else (SCENARIO_FIELDS), so a new
 // tunable is saved and restored automatically.
 import { el } from "../dom.js";
-import { parseNum, commafy } from "../format.js";
+import { parseNum, commafy, inputVal, isPrivate } from "../format.js";
 import { SCENARIO_FIELDS } from "../config/parameters.js";
 import { BUILTIN, PRESETS } from "../config/presets.js";
 import {
@@ -10,11 +10,12 @@ import {
   buildSweepOptions, fillSweepRange, buildHeatOptions, fillHeatRange,
 } from "./controls.js";
 import { recompute } from "./orchestrate.js";
+import { clearMasks, refreshMasks } from "./privacy.js";
 
 // Read the current form into a compact scenario object (short keys, whole percents).
 export function readScenario() {
   const o = { v: 2 };
-  for (const e of SCENARIO_FIELDS) o[e.scen] = e.scenFromDom(el(e.el).value);
+  for (const e of SCENARIO_FIELDS) o[e.scen] = e.scenFromDom(inputVal(el(e.el)));
   o.st = getStreams().map(s => ({ l: s.label, a: +s.amount || 0, f: String(s.from), t: s.to == null ? "" : String(s.to), c: s.cola ? 1 : 0 }));
   return o;
 }
@@ -29,10 +30,14 @@ export function applyScenario(o) {
       st: (o.st || []).map(s => ({ l: s.l, a: s.a, c: s.c, f: String(b + (parseNum(s.f) || 0)), t: (s.t == null || s.t === "") ? "" : String(b + parseNum(s.t)) })),
     });
   }
+  // Writing the form directly would leave stale masked values behind, so drop the
+  // masks first and let renderStreams/syncLabels put them back.
+  clearMasks();
   for (const e of SCENARIO_FIELDS) { const v = o[e.scen]; if (v == null) continue; el(e.el).value = e.domFromScen(v); }
   if (Array.isArray(o.st)) setStreams(o.st.map(s => ({ label: s.l != null ? s.l : "Income", amount: +s.a || 0, from: String(s.f != null ? s.f : ""), to: s.t == null ? "" : String(s.t), cola: !!s.c })));
   renderStreams();
   toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y");
+  refreshMasks();
   recompute();
 }
 
@@ -63,7 +68,7 @@ export function loadInitial() {
 export function initScenarios() {
   el("preset").addEventListener("change", e => { const k = e.target.value; if (PRESETS[k]) { applyScenario(PRESETS[k]); toast("Preset loaded."); } e.target.value = ""; });
   el("save-default").addEventListener("click", () => { try { localStorage.setItem("mc_default", JSON.stringify(readScenario())); toast("Saved — this browser opens with these numbers."); } catch (e) { toast("Storage is blocked here — use Copy link instead."); } });
-  el("copy-code").addEventListener("click", () => { const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copyText(code, "Code copied — also shown below, ready to send."); });
+  el("copy-code").addEventListener("click", () => { if (isPrivate()) { toast("Turn off private mode to share your code."); return; } const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copyText(code, "Code copied — also shown below, ready to send."); });
   el("load-code").addEventListener("click", () => { let s = (el("scen-code").value || "").trim(); if (!s) { toast("Paste a link or code first."); return; } const i = s.indexOf("s="); if (i >= 0) s = s.slice(i + 2); const o = decodeScenario(s); if (o) { applyScenario(o); toast("Scenario loaded."); } else toast("Couldn't read that code."); });
   el("reset-default").addEventListener("click", () => { try { localStorage.removeItem("mc_default"); } catch (e) {} if (/^https?:$/.test(location.protocol)) history.replaceState(null, "", location.pathname); applyScenario(BUILTIN); toast("Reset to built-in defaults."); });
 }

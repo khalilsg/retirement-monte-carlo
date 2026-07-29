@@ -14,11 +14,17 @@
 <body>
 <div class="wrap">
   <header class="masthead">
-    <div class="eyebrow">Retirement Monte Carlo</div>
+    <div class="masthead-top">
+      <div class="eyebrow">Retirement Monte Carlo</div>
+      <button class="btn small priv-toggle" id="priv-toggle" aria-pressed="false">🔒 Private mode</button>
+    </div>
     <h1>Will the portfolio outlast the plan?</h1>
     <p class="lede">Each simulated year draws real history (1928–2025) — stock, bond, and inflation together — and
       spends, then grows. Results are in today's dollars. Change one assumption and watch the probability of never
       running out move.</p>
+    <p class="priv-note" id="priv-note" hidden>Private mode is on — no dollar amounts are shown. Balances appear as a
+      multiple (<b>×</b>) of <b id="priv-unit">your balance today</b>, and annual amounts as a percentage of it, so
+      every shape, ratio, and probability still reads normally. Safe to share your screen.</p>
   </header>
 
   <div class="layout">
@@ -72,18 +78,18 @@
 
       <div class="field">
         <label for="start">Balance today <span class="val" id="start-v"></span></label>
-        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="start" value="1,500,000"></div>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="start" data-priv-kind="stock" value="1,500,000"></div>
       </div>
 
       <div class="field" id="contrib-field" hidden>
         <label for="contrib">Annual contribution <span class="val" id="contrib-v"></span></label>
-        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="contrib" value="0"></div>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="contrib" data-priv-kind="flow" value="0"></div>
         <p class="hint">Added each year until retirement, in today's dollars.</p>
       </div>
 
       <div class="field">
         <label for="spend">Annual spending <span class="val" id="spend-v"></span></label>
-        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="spend" value="70,000"></div>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="spend" data-priv-kind="flow" value="70,000"></div>
       </div>
 
       <div class="field">

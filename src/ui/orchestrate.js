@@ -1,7 +1,7 @@
 // The conductor: turns control changes into recomputes, schedules cheap vs. heavy
 // work while sliders move, and wires every event listener. `init()` boots the app.
 import { el } from "../dom.js";
-import { commafy, parseNum } from "../format.js";
+import { commafy, parseNum, isPrivate } from "../format.js";
 import {
   syncLabels, readParams, currentSims, toggleModePanels, renderStreams, getStreams,
   buildSweepOptions, fillSweepRange, buildHeatOptions, fillHeatRange,
@@ -15,6 +15,7 @@ import { renderHeat } from "../charts/heat.js";
 import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { loadInitial, initScenarios } from "./scenarios.js";
+import { initPrivacy, swapInputs } from "./privacy.js";
 
 // Light path: the headline success number + balance fan. Cheap enough to run live
 // while dragging a slider.
@@ -73,7 +74,7 @@ const debouncedSweep = debounce(renderSweep, HEAVY_MS);
 const debouncedHeat = debounce(renderHeat, HEAVY_MS);
 
 function attachEvents() {
-  const attachMoney = id => { const e = el(id); e.addEventListener("blur", () => { e.value = commafy(parseNum(e.value)); commitTyping(); }); e.addEventListener("input", scheduleTyping); };
+  const attachMoney = id => { const e = el(id); e.addEventListener("blur", () => { if (isPrivate()) return; e.value = commafy(parseNum(e.value)); commitTyping(); }); e.addEventListener("input", scheduleTyping); };
   ["start", "spend", "contrib"].forEach(attachMoney);
   ["stock", "fee", "tax", "g-band", "g-step", "g-floor", "g-ceiling", "glide-start", "glide-end", "block-len"].forEach(id => el(id).addEventListener("input", scheduleLive));
   ["cur-age", "ret-age", "end-age"].forEach(id => el(id).addEventListener("input", () => { toggleModePanels(); scheduleLive(); }));
@@ -83,7 +84,7 @@ function attachEvents() {
   el("hy-var").addEventListener("change", () => { fillHeatRange("y"); renderHeat(); });
   el("heat-swap").addEventListener("click", () => {
     [["hx-var", "hy-var"], ["hx-from", "hy-from"], ["hx-to", "hy-to"], ["hx-steps", "hy-steps"]]
-      .forEach(([a, b]) => { const t = el(a).value; el(a).value = el(b).value; el(b).value = t; });
+      .forEach(([a, b]) => swapInputs(el(a), el(b)));
     renderHeat();
   });
   ["hx-from", "hx-to", "hx-steps", "hy-from", "hy-to", "hy-steps", "h-target"].forEach(id => el(id).addEventListener("input", debouncedHeat));
@@ -105,6 +106,9 @@ function attachEvents() {
 export function init() {
   attachEvents();
   initScenarios();
+  // Toggling privacy changes how every figure renders, including the income-stream
+  // option labels, so the dropdowns are rebuilt alongside the recompute.
+  initPrivacy(() => { buildSweepOptions(); buildHeatOptions(); recompute(); });
   renderStreams();
   toggleModePanels();
   buildSweepOptions();

@@ -42,6 +42,7 @@
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 22px 80px; }
 
   header.masthead { margin-bottom: 26px; }
+  .masthead-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
   h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -.01em; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.08; margin: 8px 0 10px; text-wrap: balance; }
   .lede { color: var(--muted); max-width: 62ch; font-size: 15.5px; margin: 0; }
@@ -80,6 +81,17 @@
   .btn:hover { border-color: var(--brand); color: var(--brand); }
   .btn:active { transform: translateY(1px); }
   .btn.small { padding: 7px; font-size: 12px; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--hairline); color: var(--ink); }
+
+  /* Private mode: relative figures instead of dollars, for screen sharing. */
+  .priv-toggle { width: auto; flex: none; padding: 7px 12px; white-space: nowrap; }
+  .priv-toggle[aria-pressed="true"] { border-color: var(--brand); color: var(--brand); background: var(--brand-soft); font-weight: 600; }
+  .priv-note { margin: 14px 0 0; max-width: 62ch; padding: 10px 13px; border: 1px solid var(--hairline); border-left: 3px solid var(--brand); border-radius: 8px; background: var(--brand-soft); color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+  .priv-note b { color: var(--ink); }
+  body.private .input-money::before { content: none; }
+  body.private input[type="text"].money { padding-left: 11px; }
+  input[data-priv-real] { color: var(--muted); cursor: default; }
   .divider { height: 1px; background: var(--hairline); margin: 18px 0; border: 0; }
   .hint { font-size: 11.5px; color: var(--faint); margin: 8px 0 0; line-height: 1.45; }
 

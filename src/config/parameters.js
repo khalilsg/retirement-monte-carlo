@@ -6,7 +6,7 @@
 // assumption — its sweep / tornado / heatmap metadata. Adding a new tunable means
 // adding one entry here plus its HTML control; readParams, syncLabels, the scenario
 // codec, and the sensitivity tools all derive from this list automatically.
-import { fmtMoney, fmtFull, parseNum, commafy } from "../format.js";
+import { fmtMoney, fmtFull, parseNum, commafy, isPrivate } from "../format.js";
 
 // How a control's four representations relate for a given value "kind":
 //   read        raw DOM string  -> engine params value
@@ -26,8 +26,8 @@ const REPR = {
 const RAW_PARAMS = [
   { param: "curAge", el: "cur-age", repr: "int", scen: "ca", label: { id: "cur-age-v" } },
 
-  { param: "spend", el: "spend", repr: "money", scen: "spend", label: { id: "spend-v" },
-    sweep: { label: "Annual spending", kind: "money", apply: (pp, v) => pp.spend = v, cur: p => p.spend, min: 0, range: p => [Math.round(p.spend * .5 / 1000) * 1000, Math.round(p.spend * 1.6 / 1000) * 1000], tw: p => [p.spend * .85, p.spend * 1.15] } },
+  { param: "spend", el: "spend", repr: "money", scen: "spend", label: { id: "spend-v", fmt: v => fmtMoney(v, true) },
+    sweep: { label: "Annual spending", kind: "money", flow: true, apply: (pp, v) => pp.spend = v, cur: p => p.spend, min: 0, range: p => [Math.round(p.spend * .5 / 1000) * 1000, Math.round(p.spend * 1.6 / 1000) * 1000], tw: p => [p.spend * .85, p.spend * 1.15] } },
 
   { param: "start", el: "start", repr: "money", scen: "start", label: { id: "start-v" },
     sweep: { label: "Balance today", kind: "money", apply: (pp, v) => pp.start = v, cur: p => p.start, min: 0, range: p => [Math.round(p.start * .5 / 10000) * 10000, Math.round(p.start * 1.6 / 10000) * 10000], tw: p => [p.start * .85, p.start * 1.15] } },
@@ -38,8 +38,8 @@ const RAW_PARAMS = [
   { param: "endAge", el: "end-age", repr: "int", scen: "ea", label: { id: "end-age-v" },
     sweep: { label: "Plan-through age", kind: "int", int: true, apply: (pp, v) => pp.endAge = Math.round(v), cur: p => p.endAge, min: 60, max: 110, range: p => [Math.max(p.retAge + 5, 80), 105], tw: p => [p.endAge - 5, p.endAge + 5] } },
 
-  { param: "contribution", el: "contrib", repr: "money", scen: "ct", label: { id: "contrib-v" },
-    sweep: { key: "contrib", label: "Annual contribution", kind: "money", apply: (pp, v) => pp.contribution = v, cur: p => p.contribution, min: 0, range: p => [0, Math.max(50000, Math.round(p.spend / 1000) * 1000)], when: p => p.retAge > p.curAge, tw: p => [p.contribution * .7, p.contribution * 1.3] } },
+  { param: "contribution", el: "contrib", repr: "money", scen: "ct", label: { id: "contrib-v", fmt: v => fmtMoney(v, true) },
+    sweep: { key: "contrib", label: "Annual contribution", kind: "money", flow: true, apply: (pp, v) => pp.contribution = v, cur: p => p.contribution, min: 0, range: p => [0, Math.max(50000, Math.round(p.spend / 1000) * 1000)], when: p => p.retAge > p.curAge, tw: p => [p.contribution * .7, p.contribution * 1.3] } },
 
   { param: "fee", el: "fee", repr: "pct", scen: "fee", label: { id: "fee-v", fmt: v => (v * 100).toFixed(2).replace(/0$/, "") },
     sweep: { label: "Fees (%)", kind: "pctDec", apply: (pp, v) => pp.fee = v / 100, cur: p => p.fee * 100, min: 0, max: 3, range: () => [0, 2], tw: p => [p.fee * 100 - 0.3, p.fee * 100 + 0.3] } },
@@ -109,9 +109,9 @@ for (const e of PARAMS) if (e.sweep) SWEEP_META[e.sweep.key || e.param] = e.swee
 
 // Sweep metadata for one income stream (streams are a dynamic, per-item family).
 export function streamMeta(i, streams) {
-  const s = streams[i], label = (s && s.label ? s.label : "Income " + (i + 1)) + " ($/yr)";
+  const s = streams[i], label = (s && s.label ? s.label : "Income " + (i + 1)) + (isPrivate() ? " (/yr)" : " ($/yr)");
   return {
-    label, kind: "money", min: 0,
+    label, kind: "money", flow: true, min: 0,
     apply: (pp, v) => { if (pp.streams[i]) { pp.streams[i].amount = v; pp.streams[i].cola = true; } },
     cur: p => p.streams[i] ? p.streams[i].amount : 0,
     range: p => { const cur = p.streams[i] ? p.streams[i].amount : 0; return [0, Math.max(50000, Math.round(Math.max(p.spend, cur * 2) / 1000) * 1000)]; },
@@ -125,7 +125,7 @@ export function getMeta(key, streams) {
 
 // Format a sweep value for a given parameter kind.
 export function sweepFmt(meta, x, full) {
-  if (meta.kind === "money") return full ? fmtFull(x) : fmtMoney(x);
+  if (meta.kind === "money") return full ? fmtFull(x, meta.flow) : fmtMoney(x, meta.flow);
   if (meta.kind === "pctDec") return x.toFixed(2) + "%";
   if (meta.kind === "pctInt") return Math.round(x) + "%";
   return String(Math.round(x));
