@@ -12,7 +12,7 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Income streams** — pensions / Social Security, age-based, COLA or nominal
 - **Taxes** — effective-rate gross-up on withdrawals
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
-- **Scenarios** — presets, save-as-default, and shareable codes/links
+- **Scenarios** — presets, save-as-default, and shareable links (`?s=…`) that open straight into someone else's numbers
 - **Monte Carlo confidence interval** on the headline result
 - **Private mode** — hides every dollar amount for screen sharing: balances render as a multiple (×) of your balance today, annual amounts as a percentage of it, so charts and ratios stay fully readable
 
@@ -34,11 +34,17 @@ src/
     parameters.js     the parameter registry — single source of truth for every
                       tunable (DOM binding, live label, scenario codec, sweep meta)
     presets.js        built-in defaults + named presets
+    codec.js          scenario <-> compact URL-safe share code
   charts/             one module per visualization (fan, sweep, tornado, heat,
                       sequence) + shared svg.js helpers
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
                       privacy.js — private-mode toggle, input masking, leak guards
 ```
+
+### Sharing a scenario
+`Copy link` produces `…/?s=<code>`, which loads those assumptions on open (`#s=<code>` works too, as does pasting either form into the load box).
+
+A code carries only the fields that differ from the built-in defaults, then goes out scrambled and base64url-encoded, so the numbers aren't legible in the address bar, a chat window, or a screen share. The Coast preset comes to 132 characters against 358 for the base64'd JSON the old format used. **The scrambling is obfuscation, not encryption** — the keystream is right there in [`src/config/codec.js`](src/config/codec.js) — so a scenario link is shared, not secret. Codes in the older format still load.
 
 ### Adding a tunable assumption
 Add one entry to the `PARAMS` list in [`src/config/parameters.js`](src/config/parameters.js) and its control to `index.html`. `readParams`, the live labels, the scenario save/share codec, and the sensitivity sweep / tornado / heatmap all derive from that registry automatically.

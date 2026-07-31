@@ -14,6 +14,8 @@ import { fmtMoney, fmtFull, parseNum, commafy, isPrivate } from "../format.js";
 //   domFromScen stored scenario -> DOM value to write back
 //   label       engine value    -> default live-label text
 // "pct" controls display/serialize as whole percents but the engine stores fractions.
+// A "select" entry also lists its `opts` in HTML order; the scenario codec ships the
+// index instead of the word, so appending options is safe but reordering is not.
 const REPR = {
   money:  { read: raw => parseNum(raw), scenFromDom: raw => parseNum(raw), domFromScen: v => commafy(parseNum(v)), label: v => fmtMoney(v) },
   int:    { read: raw => +raw,          scenFromDom: raw => +raw,          domFromScen: v => v,                     label: v => v },
@@ -47,7 +49,7 @@ const RAW_PARAMS = [
   { param: "tax", el: "tax", repr: "pct", scen: "tx", label: { id: "tax-v", fmt: v => Math.round(v * 100) },
     sweep: { label: "Effective tax (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.tax = v / 100, cur: p => p.tax * 100, min: 0, max: 60, range: () => [0, 35], tw: p => [p.tax * 100 - 5, p.tax * 100 + 5] } },
 
-  { param: "spendMode", el: "spend-mode", repr: "select", scen: "sm" },
+  { param: "spendMode", el: "spend-mode", repr: "select", scen: "sm", opts: ["fixed", "guardrails"] },
 
   { param: "stock", el: "stock", repr: "pct", scen: "stk", label: { id: "stock-v" },
     sweep: { label: "Stock allocation (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.stock = v / 100, cur: p => p.stock * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "fixed", tw: p => [p.stock * 100 - 15, p.stock * 100 + 15] } },
@@ -58,7 +60,7 @@ const RAW_PARAMS = [
   { param: "glideEnd", el: "glide-end", repr: "pct", scen: "gev", label: { id: "glide-end-v" },
     sweep: { label: "Ending stock (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.glideEnd = v / 100, cur: p => p.glideEnd * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "glide", tw: p => [p.glideEnd * 100 - 15, p.glideEnd * 100 + 15] } },
 
-  { param: "allocMode", el: "alloc-mode", repr: "select", scen: "am" },
+  { param: "allocMode", el: "alloc-mode", repr: "select", scen: "am", opts: ["fixed", "glide"] },
 
   { param: "gFloor", el: "g-floor", repr: "pct", scen: "gf", label: { id: "g-floor-v" },
     sweep: { label: "Spending floor (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gFloor = v / 100, cur: p => p.gFloor * 100, min: 30, max: 100, range: () => [50, 100], when: p => p.spendMode === "guardrails", tw: p => [p.gFloor * 100 - 10, p.gFloor * 100 + 10] } },
@@ -71,7 +73,7 @@ const RAW_PARAMS = [
 
   { param: "gStep", el: "g-step", repr: "pct", scen: "gs", label: { id: "g-step-v" } },
 
-  { param: "sampleMode", el: "sample-mode", repr: "select", scen: "smp" },
+  { param: "sampleMode", el: "sample-mode", repr: "select", scen: "smp", opts: ["iid", "blocks"] },
 
   // blockLen only takes effect under "blocks" sampling; the label mirrors the raw
   // slider (handled in the UI), so it carries no generic label here.

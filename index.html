@@ -40,17 +40,20 @@
         </select>
         <div class="scenario-row">
           <button class="btn small" id="save-default">★ Save as my default</button>
-          <button class="btn small" id="copy-code">📋 Copy code</button>
+          <button class="btn small" id="copy-link">🔗 Copy link</button>
         </div>
         <details class="scen-more" id="scen-more">
-          <summary>Load a shared scenario</summary>
-          <input type="text" id="scen-code" placeholder="Paste a scenario code here">
+          <summary>Share or load a scenario</summary>
+          <input type="text" id="scen-code" placeholder="Paste a scenario link or code here">
           <div class="scenario-row">
             <button class="btn small" id="load-code">Load</button>
-            <button class="btn small" id="reset-default">Reset to defaults</button>
+            <button class="btn small" id="copy-code">Copy code</button>
+            <button class="btn small" id="reset-default">Reset</button>
           </div>
-          <p class="hint">To share your numbers, click <b>Copy code</b> and send that text along with this tool's
-            link. The other person opens the tool, expands this section, pastes the code, and clicks <b>Load</b>.
+          <p class="hint">To share your numbers, click <b>Copy link</b> — it carries the whole scenario, so opening
+            it loads these assumptions straight away. <b>Copy code</b> gives you the short code on its own instead;
+            paste either one in the box above and click <b>Load</b>. The code is scrambled, so your figures aren't
+            legible in the link itself — but treat it as shared, not secret: whoever opens it sees the whole scenario.
             <b>Save as my default</b> remembers your numbers in this browser for next time.</p>
         </details>
         <div class="toast" id="toast"></div>

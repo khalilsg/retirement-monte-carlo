@@ -4,6 +4,7 @@
 import { el } from "../dom.js";
 import { parseNum, commafy, inputVal, isPrivate } from "../format.js";
 import { SCENARIO_FIELDS } from "../config/parameters.js";
+import { encodeScenario, decodeScenario } from "../config/codec.js";
 import { BUILTIN, PRESETS } from "../config/presets.js";
 import {
   getStreams, setStreams, renderStreams, toggleModePanels,
@@ -41,25 +42,41 @@ export function applyScenario(o) {
   recompute();
 }
 
-// ---------- Encoding / sharing ----------
-function encodeScenario(o) { try { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); } catch (e) { return ""; } }
-function decodeScenario(s) { try { s = s.replace(/-/g, "+").replace(/_/g, "/"); return JSON.parse(decodeURIComponent(escape(atob(s)))); } catch (e) { return null; } }
+// ---------- Sharing ----------
+// The code itself is `?s=` in a link and the same text in the paste box, so both
+// forms are accepted wherever one is: pull the value out of an `s=` parameter if
+// there is one, otherwise take the whole string as the code. What comes back is
+// never URL-decoded — any percent-escapes in it belong to the code, not the URL.
+const S_PARAM = /(?:^|[?&#])s=([^&#\s]*)/;
+function extractCode(s) { const m = S_PARAM.exec(String(s).trim()); return m ? m[1] : String(s).trim(); }
+
+// A shareable link to this page carrying the scenario. Only meaningful over http(s)
+// — from a file:// copy there is no address worth sending anyone.
+function shareLink(code) {
+  if (!/^https?:$/.test(location.protocol)) return "";
+  return location.origin + location.pathname + "?s=" + code;
+}
 
 let toastT = null;
 function toast(msg) { const t = el("toast"); t.textContent = msg; t.classList.add("show"); if (toastT) clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2800); }
 async function copyText(txt, okMsg) { try { await navigator.clipboard.writeText(txt); toast(okMsg); } catch (e) { el("scen-code").value = txt; el("scen-more").open = true; toast("Copy it from the box below."); } }
 
-// Read a scenario hash even when embedded in a framed context.
-function readableHash() {
-  const tryOne = fn => { try { const v = fn(); return v && v.indexOf("s=") >= 0 ? v : ""; } catch (e) { return ""; } };
-  return tryOne(() => location.hash) || tryOne(() => window.parent.location.hash) || tryOne(() => window.top.location.hash) || "";
+// Read a shared scenario out of the URL — "?s=CODE" or "#s=CODE" — looking through
+// to the parent when the tool is embedded in a framed context.
+function urlCode() {
+  const tryOne = fn => { try { const m = S_PARAM.exec(fn()); return m ? m[1] : ""; } catch (e) { return ""; } };
+  return tryOne(() => location.search + location.hash)
+    || tryOne(() => window.parent.location.search + window.parent.location.hash)
+    || tryOne(() => window.top.location.search + window.top.location.hash);
 }
 
-// Load from a shared hash, then a saved default, else compute the built-in defaults.
+// Load from a shared link, then a saved default, else compute the built-in defaults.
 export function loadInitial() {
   let o = null;
-  const h = readableHash(), idx = h.indexOf("s=");
-  if (idx >= 0) o = decodeScenario(h.slice(idx + 2));
+  const code = urlCode();
+  // Say so either way: silently showing defaults would look like the sender's
+  // numbers, and links do get truncated on their way through chat windows.
+  if (code) { o = decodeScenario(code); toast(o ? "Loaded a shared scenario." : "That shared link looks incomplete."); }
   if (!o) { try { const ls = localStorage.getItem("mc_default"); if (ls) o = JSON.parse(ls); } catch (e) {} }
   if (o) applyScenario(o); else recompute();
 }
@@ -68,7 +85,14 @@ export function loadInitial() {
 export function initScenarios() {
   el("preset").addEventListener("change", e => { const k = e.target.value; if (PRESETS[k]) { applyScenario(PRESETS[k]); toast("Preset loaded."); } e.target.value = ""; });
   el("save-default").addEventListener("click", () => { try { localStorage.setItem("mc_default", JSON.stringify(readScenario())); toast("Saved — this browser opens with these numbers."); } catch (e) { toast("Storage is blocked here — use Copy link instead."); } });
+  el("copy-link").addEventListener("click", () => {
+    if (isPrivate()) { toast("Turn off private mode to share your numbers."); return; }
+    const code = encodeScenario(readScenario()), link = shareLink(code);
+    el("scen-code").value = link || code;
+    if (!link) { el("scen-more").open = true; copyText(code, "No link from a local file — code copied instead."); return; }
+    copyText(link, "Link copied — it opens with these numbers.");
+  });
   el("copy-code").addEventListener("click", () => { if (isPrivate()) { toast("Turn off private mode to share your code."); return; } const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copyText(code, "Code copied — also shown below, ready to send."); });
-  el("load-code").addEventListener("click", () => { let s = (el("scen-code").value || "").trim(); if (!s) { toast("Paste a link or code first."); return; } const i = s.indexOf("s="); if (i >= 0) s = s.slice(i + 2); const o = decodeScenario(s); if (o) { applyScenario(o); toast("Scenario loaded."); } else toast("Couldn't read that code."); });
+  el("load-code").addEventListener("click", () => { const s = (el("scen-code").value || "").trim(); if (!s) { toast("Paste a link or code first."); return; } const o = decodeScenario(extractCode(s)); if (o) { applyScenario(o); toast("Scenario loaded."); } else toast("Couldn't read that link or code."); });
   el("reset-default").addEventListener("click", () => { try { localStorage.removeItem("mc_default"); } catch (e) {} if (/^https?:$/.test(location.protocol)) history.replaceState(null, "", location.pathname); applyScenario(BUILTIN); toast("Reset to built-in defaults."); });
 }
