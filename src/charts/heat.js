@@ -9,10 +9,20 @@ import { ensureIndexBlock } from "../engine/rng.js";
 import { simSuccess } from "../engine/simulate.js";
 import { tooltip, placeTooltip } from "./svg.js";
 
-// The heatmap ramp adapts to the active theme.
+// The heatmap ramp diverges around the target: neutral white at the target success
+// rate, warm below it, cool above it. Both ends adapt to the active theme.
 function isDark() { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; }
-function heatRamp() { return isDark() ? [[24, 34, 54], [150, 163, 240]] : [[234, 237, 249], [33, 44, 102]]; }
+function heatRamp() {
+  return isDark()
+    ? { lo: [176, 60, 48], mid: [237, 240, 247], hi: [92, 112, 214] }
+    : { lo: [154, 42, 33], mid: [255, 255, 255], hi: [33, 44, 102] };
+}
 function lerpCol(a, b, t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return `rgb(${Math.round(a[0] + (b[0] - a[0]) * t)},${Math.round(a[1] + (b[1] - a[1]) * t)},${Math.round(a[2] + (b[2] - a[2]) * t)})`; }
+// v and pivot are percentages; white sits exactly on the pivot.
+function heatCol(ramp, v, pivot) {
+  if (v <= pivot) return lerpCol(ramp.lo, ramp.mid, pivot <= 0 ? 1 : v / pivot);
+  return lerpCol(ramp.mid, ramp.hi, pivot >= 100 ? 0 : (v - pivot) / (100 - pivot));
+}
 
 function axisValues(meta, fromEl, toEl, steps) {
   let from = parseNum(inputVal(el(fromEl))), to = parseNum(inputVal(el(toEl)));
@@ -50,7 +60,7 @@ export function renderHeat() {
   const xpx = i => pl + i * cellW, ypxRow = j => pt + (rows - 1 - j) * cellH;
   const cg = svgEl("g", {}); svg.appendChild(cg);
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++)
-    cg.appendChild(svgEl("rect", { x: xpx(i), y: ypxRow(j), width: cellW + .6, height: cellH + .6, fill: lerpCol(ramp[0], ramp[1], grid[j][i] / 100) }));
+    cg.appendChild(svgEl("rect", { x: xpx(i), y: ypxRow(j), width: cellW + .6, height: cellH + .6, fill: heatCol(ramp, grid[j][i], target) }));
   let fd = "";
   for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
     const a = grid[j][i] >= target;
@@ -73,19 +83,20 @@ export function renderHeat() {
     svg.appendChild(svgEl("circle", { cx: mx, cy: my, r: 2, fill: "var(--ink)" }));
   }
   const defs = svgEl("defs", {}), grad = svgEl("linearGradient", { id: "hg", x1: "0", x2: "1", y1: "0", y2: "0" });
-  grad.appendChild(svgEl("stop", { offset: "0", "stop-color": lerpCol(ramp[0], ramp[1], 0) }));
-  grad.appendChild(svgEl("stop", { offset: "1", "stop-color": lerpCol(ramp[0], ramp[1], 1) }));
+  grad.appendChild(svgEl("stop", { offset: "0", "stop-color": heatCol(ramp, 0, target) }));
+  grad.appendChild(svgEl("stop", { offset: String(Math.max(0, Math.min(1, target / 100))), "stop-color": `rgb(${ramp.mid.join(",")})` }));
+  grad.appendChild(svgEl("stop", { offset: "1", "stop-color": heatCol(ramp, 100, target) }));
   defs.appendChild(grad); svg.appendChild(defs);
   const lx = pl, lw = 200, ly = pt + ih + 52;
   const ltt = svgEl("text", { class: "axis-title", x: lx, y: ly - 6 }); ltt.textContent = "Success probability"; svg.appendChild(ltt);
-  svg.appendChild(svgEl("rect", { x: lx, y: ly, width: lw, height: 11, fill: "url(#hg)", rx: 2 }));
+  svg.appendChild(svgEl("rect", { x: lx, y: ly, width: lw, height: 11, fill: "url(#hg)", rx: 2, stroke: "var(--hairline)", "stroke-width": 1 }));
   const la = svgEl("g", { class: "axis" }); svg.appendChild(la);
   [0, 50, 100].forEach(v => { const t = svgEl("text", { x: lx + lw * v / 100, y: ly + 24, "text-anchor": "middle" }); t.textContent = v + "%"; la.appendChild(t); });
   const tmx = lx + lw * target / 100;
   svg.appendChild(svgEl("path", { d: `M${tmx},${ly - 2}L${tmx - 4},${ly - 8}L${tmx + 4},${ly - 8}Z`, fill: "var(--warn)" }));
   const ftl = svgEl("text", { class: "axis-title", x: lx + lw + 16, y: ly + 9 }); ftl.setAttribute("fill", "var(--warn)"); ftl.textContent = "— target " + target + "%"; svg.appendChild(ftl);
   const hi = svgEl("rect", { fill: "none", stroke: "var(--ink)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(hi);
-  const rect = svgEl("rect", { x: pl, y: pt, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
+  const rect = svgEl("rect", { x: pl, y: pt, width: iw, height: ih, fill: "transparent", stroke: "var(--hairline)", "stroke-width": 1 }); svg.appendChild(rect);
   heatState = { svg, W, H, pl, pt, iw, ih, cols, rows, cellW, cellH, xs, ys, grid, xm, ym, hi, rect }; attachHeatHover();
 }
 
