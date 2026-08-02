@@ -2,14 +2,16 @@
 // with a retirement marker and a hover readout.
 import { el } from "../dom.js";
 import { fmtMoney, isPrivate } from "../format.js";
-import { svgEl, niceMax, tooltip, placeTooltip, textScale } from "./svg.js";
+import { svgEl, niceMax, tooltip, placeTooltip, attachReadout, textScale, heightScale } from "./svg.js";
 import { renderTable, strideIndices, describeChart } from "./table.js";
 
 let fanState = null;
 
 export function renderFan(r) {
   const svg = el("fan"); svg.innerHTML = "";
-  const k = textScale(), W = 760, H = 380, m = { t: 14, r: (k > 1 ? 26 : 16) * k, b: 34 * k, l: 62 * k };
+  const k = textScale(), W = 760, H = Math.round(380 * heightScale());
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  const m = { t: 14, r: (k > 1 ? 26 : 16) * k, b: 34 * k, l: 62 * k };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, h = r.h, ymax = niceMax(r.ymax);
   const xOf = y => m.l + (h === 0 ? 0 : (y / h) * iw), yOf = v => m.t + ih - (Math.min(v, ymax) / ymax) * ih;
   const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
@@ -51,15 +53,17 @@ function describeFan(r) {
 
 function attachFanHover() {
   const st = fanState, tt = tooltip();
-  st.rect.addEventListener("mousemove", ev => {
-    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
-    let y = Math.round((sx - st.m.l) / st.iw * st.h); y = Math.max(0, Math.min(st.h, y));
-    const xx = st.xOf(y);
-    st.hoverLine.setAttribute("x1", xx); st.hoverLine.setAttribute("x2", xx); st.hoverLine.setAttribute("opacity", 1);
-    st.dot.setAttribute("cx", xx); st.dot.setAttribute("cy", st.yOf(st.r.pcts.p50[y])); st.dot.setAttribute("opacity", 1);
-    tt.style.opacity = 1;
-    tt.innerHTML = `<div class="tt-t">Age ${st.r.ca + y}</div>90th <b>${fmtMoney(st.r.pcts.p90[y])}</b><br>Median <b>${fmtMoney(st.r.pcts.p50[y])}</b><br>10th <b>${fmtMoney(st.r.pcts.p10[y])}</b>`;
-    placeTooltip(tt, ev);
+  attachReadout(st.rect, {
+    show: ev => {
+      const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+      let y = Math.round((sx - st.m.l) / st.iw * st.h); y = Math.max(0, Math.min(st.h, y));
+      const xx = st.xOf(y);
+      st.hoverLine.setAttribute("x1", xx); st.hoverLine.setAttribute("x2", xx); st.hoverLine.setAttribute("opacity", 1);
+      st.dot.setAttribute("cx", xx); st.dot.setAttribute("cy", st.yOf(st.r.pcts.p50[y])); st.dot.setAttribute("opacity", 1);
+      tt.style.opacity = 1;
+      tt.innerHTML = `<div class="tt-t">Age ${st.r.ca + y}</div>90th <b>${fmtMoney(st.r.pcts.p90[y])}</b><br>Median <b>${fmtMoney(st.r.pcts.p50[y])}</b><br>10th <b>${fmtMoney(st.r.pcts.p10[y])}</b>`;
+      placeTooltip(tt, ev);
+    },
+    hide: () => { st.hoverLine.setAttribute("opacity", 0); st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; },
   });
-  st.rect.addEventListener("mouseleave", () => { st.hoverLine.setAttribute("opacity", 0); st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
 }

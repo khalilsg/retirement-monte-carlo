@@ -2,7 +2,7 @@
 // ± range, everything else held at the current plan.
 import { el } from "../dom.js";
 import { escapeHtml } from "../format.js";
-import { svgEl, tooltip, placeTooltip, textScale } from "./svg.js";
+import { svgEl, tooltip, placeTooltip, attachReadout, textScale } from "./svg.js";
 import { renderTable, describeChart } from "./table.js";
 import { SWEEP_META, streamMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -92,14 +92,16 @@ function describeTornado(base, rows) {
 
 function attachTornadoHover() {
   const st = tornadoState, tt = tooltip();
-  st.rect.addEventListener("mousemove", ev => {
-    const box = st.svg.getBoundingClientRect(), sy = (ev.clientY - box.top) / box.height * st.H;
-    let i = Math.floor((sy - st.m.t) / st.rowH);
-    if (i < 0 || i >= st.rows.length) { tt.style.opacity = 0; return; }
-    const r = st.rows[i], worse = r.sLo <= r.sHi ? { in: r.lo, s: r.sLo } : { in: r.hi, s: r.sHi }, better = r.sLo <= r.sHi ? { in: r.hi, s: r.sHi } : { in: r.lo, s: r.sLo };
-    tt.style.opacity = 1;
-    tt.innerHTML = `<div class="tt-t">${escapeHtml(r.label)}</div>${sweepFmt(r.meta, worse.in, false)} → <b>${worse.s.toFixed(1)}%</b><br>${sweepFmt(r.meta, better.in, false)} → <b>${better.s.toFixed(1)}%</b><br>swing <b>${r.impact.toFixed(1)} pts</b>`;
-    placeTooltip(tt, ev);
+  attachReadout(st.rect, {
+    show: ev => {
+      const box = st.svg.getBoundingClientRect(), sy = (ev.clientY - box.top) / box.height * st.H;
+      let i = Math.floor((sy - st.m.t) / st.rowH);
+      if (i < 0 || i >= st.rows.length) { tt.style.opacity = 0; return; }
+      const r = st.rows[i], worse = r.sLo <= r.sHi ? { in: r.lo, s: r.sLo } : { in: r.hi, s: r.sHi }, better = r.sLo <= r.sHi ? { in: r.hi, s: r.sHi } : { in: r.lo, s: r.sLo };
+      tt.style.opacity = 1;
+      tt.innerHTML = `<div class="tt-t">${escapeHtml(r.label)}</div>${sweepFmt(r.meta, worse.in, false)} → <b>${worse.s.toFixed(1)}%</b><br>${sweepFmt(r.meta, better.in, false)} → <b>${better.s.toFixed(1)}%</b><br>swing <b>${r.impact.toFixed(1)} pts</b>`;
+      placeTooltip(tt, ev);
+    },
+    hide: () => { tt.style.opacity = 0; },
   });
-  st.rect.addEventListener("mouseleave", () => { tt.style.opacity = 0; });
 }

@@ -2,7 +2,7 @@
 // and the conditional-success-by-age chart with a "breathe easy" threshold.
 import { el } from "../dom.js";
 import { parseNum } from "../format.js";
-import { svgEl, tooltip, placeTooltip, textScale } from "./svg.js";
+import { svgEl, tooltip, placeTooltip, attachReadout, textScale, heightScale } from "./svg.js";
 import { renderTable, strideIndices, describeChart } from "./table.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { simSequence, safeYearFrom } from "../engine/simulate.js";
@@ -39,7 +39,9 @@ function drawSeqChart(d, target, safeYear) {
   const svg = el("seq-chart"); svg.innerHTML = "";
   // 46 is enough for "100%" at desktop text size but not once the glyphs grow, so
   // the enlarged case gets a wider base too. Desktop geometry is unchanged.
-  const k = textScale(), W = 760, H = 300, m = { t: 16, r: (k > 1 ? 30 : 18) * k, b: 40 * k, l: (k > 1 ? 58 : 46) * k }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const k = textScale(), W = 760, H = Math.round(300 * heightScale());
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  const m = { t: 16, r: (k > 1 ? 30 : 18) * k, b: 40 * k, l: (k > 1 ? 58 : 46) * k }, iw = W - m.l - m.r, ih = H - m.t - m.b;
   const A = d.A, T = d.h, ca = d.ca, span = Math.max(1, T - A);
   const xOf = y => m.l + (y - A) / span * iw, yOf = v => m.t + ih - (v / 100) * ih;
   const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
@@ -89,15 +91,17 @@ function describeSeqChart(d, target, safeYear) {
 
 function attachSeqHover() {
   const st = seqChartState, tt = tooltip();
-  st.rect.addEventListener("mousemove", ev => {
-    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
-    let N = st.A + Math.round((sx - st.m.l) / st.iw * st.span); N = Math.max(st.A, Math.min(st.T, N));
-    const v = st.d.cond[N];
-    if (isNaN(v)) { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; return; }
-    st.dot.setAttribute("cx", st.xOf(N)); st.dot.setAttribute("cy", st.yOf(v)); st.dot.setAttribute("opacity", 1);
-    tt.style.opacity = 1;
-    tt.innerHTML = `<div class="tt-t">Age ${st.ca + N}</div>Success if on track <b>${v.toFixed(1)}%</b><br>${st.d.onFrac[N].toFixed(0)}% of paths on track`;
-    placeTooltip(tt, ev);
+  attachReadout(st.rect, {
+    show: ev => {
+      const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+      let N = st.A + Math.round((sx - st.m.l) / st.iw * st.span); N = Math.max(st.A, Math.min(st.T, N));
+      const v = st.d.cond[N];
+      if (isNaN(v)) { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; return; }
+      st.dot.setAttribute("cx", st.xOf(N)); st.dot.setAttribute("cy", st.yOf(v)); st.dot.setAttribute("opacity", 1);
+      tt.style.opacity = 1;
+      tt.innerHTML = `<div class="tt-t">Age ${st.ca + N}</div>Success if on track <b>${v.toFixed(1)}%</b><br>${st.d.onFrac[N].toFixed(0)}% of paths on track`;
+      placeTooltip(tt, ev);
+    },
+    hide: () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; },
   });
-  st.rect.addEventListener("mouseleave", () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
 }

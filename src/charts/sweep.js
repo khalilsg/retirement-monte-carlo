@@ -2,7 +2,7 @@
 // plot the resulting success curve with a "now" marker, and offer a data table.
 import { el } from "../dom.js";
 import { parseNum, escapeHtml, inputVal } from "../format.js";
-import { svgEl, tooltip, placeTooltip, textScale } from "./svg.js";
+import { svgEl, tooltip, placeTooltip, attachReadout, textScale, heightScale } from "./svg.js";
 import { renderTable, strideIndices, describeChart } from "./table.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -32,9 +32,11 @@ export function renderSweep() {
 let sweepState = null;
 function drawSweep(xs, ys, meta, curVal) {
   const svg = el("sweep"); svg.innerHTML = "";
+  const k = textScale(), W = 760, H = Math.round(340 * heightScale());
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
   // The final x-tick sits at the right edge with its label centred on it, so r has
   // to hold half a label. 18 covers that at desktop size only.
-  const k = textScale(), W = 760, H = 340, m = { t: 16, r: (k > 1 ? 30 : 18) * k, b: 40 * k, l: 52 * k };
+  const m = { t: 16, r: (k > 1 ? 30 : 18) * k, b: 40 * k, l: 52 * k };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, xmin = xs[0], xmax = xs[xs.length - 1];
   const xOf = x => m.l + (xmax === xmin ? 0 : (x - xmin) / (xmax - xmin) * iw), yOf = y => m.t + ih - (y / 100) * ih;
   const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
@@ -64,15 +66,17 @@ function drawSweep(xs, ys, meta, curVal) {
 
 function attachSweepHover() {
   const st = sweepState, tt = tooltip();
-  st.rect.addEventListener("mousemove", ev => {
-    const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
-    let best = 0, bd = Infinity; for (let i = 0; i < st.xs.length; i++) { const dx = Math.abs(st.xOf(st.xs[i]) - sx); if (dx < bd) { bd = dx; best = i; } }
-    st.dot.setAttribute("cx", st.xOf(st.xs[best])); st.dot.setAttribute("cy", st.yOf(st.ys[best])); st.dot.setAttribute("opacity", 1);
-    tt.style.opacity = 1;
-    tt.innerHTML = `<div class="tt-t">${escapeHtml(st.meta.label)}</div>${sweepFmt(st.meta, st.xs[best], false)} → <b>${st.ys[best].toFixed(1)}%</b>`;
-    placeTooltip(tt, ev);
+  attachReadout(st.rect, {
+    show: ev => {
+      const box = st.svg.getBoundingClientRect(), sx = (ev.clientX - box.left) / box.width * st.W;
+      let best = 0, bd = Infinity; for (let i = 0; i < st.xs.length; i++) { const dx = Math.abs(st.xOf(st.xs[i]) - sx); if (dx < bd) { bd = dx; best = i; } }
+      st.dot.setAttribute("cx", st.xOf(st.xs[best])); st.dot.setAttribute("cy", st.yOf(st.ys[best])); st.dot.setAttribute("opacity", 1);
+      tt.style.opacity = 1;
+      tt.innerHTML = `<div class="tt-t">${escapeHtml(st.meta.label)}</div>${sweepFmt(st.meta, st.xs[best], false)} → <b>${st.ys[best].toFixed(1)}%</b>`;
+      placeTooltip(tt, ev);
+    },
+    hide: () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; },
   });
-  st.rect.addEventListener("mouseleave", () => { st.dot.setAttribute("opacity", 0); tt.style.opacity = 0; });
 }
 
 function buildSweepTable(xs, ys, meta) {

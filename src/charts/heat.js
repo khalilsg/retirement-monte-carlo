@@ -8,7 +8,7 @@ import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { ensureIndexBlock } from "../engine/rng.js";
 import { simSuccess } from "../engine/simulate.js";
-import { tooltip, placeTooltip } from "./svg.js";
+import { tooltip, placeTooltip, attachReadout } from "./svg.js";
 
 // The heatmap ramp diverges around the target: neutral white at the target success
 // rate, warm below it, cool above it. Both ends adapt to the active theme.
@@ -43,11 +43,15 @@ export function renderHeat() {
   // The axis gutter, the tick gaps and the legend strip below the grid all hold
   // text, so they scale with it; H grows to match rather than letting the legend
   // slide off the bottom of a fixed viewBox.
-  const k = textScale(), W = 760, pt = 16, pl = 66 * k, pr = 18, ih = 300, iw = W - pl - pr;
-  // Everything below the grid is text, so the height it needs grows with it. The
-  // 78 is the breathing room under the legend and stays fixed; at k=1 this is
+  const k = textScale(), W = 760, pt = 16, pl = 66 * k, pr = 18, iw = W - pl - pr;
+  // On a phone the gutter widens with the text, so iw shrinks while a fixed ih of
+  // 300 stays put — which left the cells about twice as wide as they were tall.
+  // Tracking iw squares them up; the cap keeps the grid from outgrowing the screen.
+  const ih = k > 1 ? Math.min(iw, 560) : 300;
+  // Everything below the grid is text, so the room it needs grows with it. The 94
+  // is the legend block plus fixed breathing room; at k=1 and ih=300 this is
   // exactly the original 470, so desktop geometry is untouched.
-  const H = 394 + 76 * k;
+  const H = Math.round(ih + 76 * k + 94);
   svg.setAttribute("viewBox", "0 0 " + W + " " + Math.round(H));
   if (xk === yk) {
     const t = svgEl("text", { x: W / 2, y: 150, "text-anchor": "middle", class: "axis-title" }); t.textContent = "Pick two different parameters for the X and Y axes."; svg.appendChild(t);
@@ -138,15 +142,17 @@ function describeHeat(grid, xs, ys, xm, ym, cols, rows, target) {
 
 function attachHeatHover() {
   const st = heatState, tt = tooltip();
-  st.rect.addEventListener("mousemove", ev => {
-    const box = st.svg.getBoundingClientRect();
-    const sx = (ev.clientX - box.left) / box.width * st.W, sy = (ev.clientY - box.top) / box.height * st.H;
-    let i = Math.floor((sx - st.pl) / st.cellW); i = Math.max(0, Math.min(st.cols - 1, i));
-    let rf = Math.floor((sy - st.pt) / st.cellH); rf = Math.max(0, Math.min(st.rows - 1, rf)); const j = st.rows - 1 - rf;
-    st.hi.setAttribute("x", st.pl + i * st.cellW); st.hi.setAttribute("y", st.pt + rf * st.cellH); st.hi.setAttribute("width", st.cellW); st.hi.setAttribute("height", st.cellH); st.hi.setAttribute("opacity", 1);
-    tt.style.opacity = 1;
-    tt.innerHTML = `<div class="tt-t">${st.grid[j][i].toFixed(1)}% success</div>${escapeHtml(st.xm.label)}: <b>${sweepFmt(st.xm, st.xs[i], false)}</b><br>${escapeHtml(st.ym.label)}: <b>${sweepFmt(st.ym, st.ys[j], false)}</b>`;
-    placeTooltip(tt, ev);
+  attachReadout(st.rect, {
+    show: ev => {
+      const box = st.svg.getBoundingClientRect();
+      const sx = (ev.clientX - box.left) / box.width * st.W, sy = (ev.clientY - box.top) / box.height * st.H;
+      let i = Math.floor((sx - st.pl) / st.cellW); i = Math.max(0, Math.min(st.cols - 1, i));
+      let rf = Math.floor((sy - st.pt) / st.cellH); rf = Math.max(0, Math.min(st.rows - 1, rf)); const j = st.rows - 1 - rf;
+      st.hi.setAttribute("x", st.pl + i * st.cellW); st.hi.setAttribute("y", st.pt + rf * st.cellH); st.hi.setAttribute("width", st.cellW); st.hi.setAttribute("height", st.cellH); st.hi.setAttribute("opacity", 1);
+      tt.style.opacity = 1;
+      tt.innerHTML = `<div class="tt-t">${st.grid[j][i].toFixed(1)}% success</div>${escapeHtml(st.xm.label)}: <b>${sweepFmt(st.xm, st.xs[i], false)}</b><br>${escapeHtml(st.ym.label)}: <b>${sweepFmt(st.ym, st.ys[j], false)}</b>`;
+      placeTooltip(tt, ev);
+    },
+    hide: () => { st.hi.setAttribute("opacity", 0); tt.style.opacity = 0; },
   });
-  st.rect.addEventListener("mouseleave", () => { st.hi.setAttribute("opacity", 0); tt.style.opacity = 0; });
 }
