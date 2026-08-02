@@ -2,7 +2,7 @@
 // and the conditional-success-by-age chart with a "breathe easy" threshold.
 import { el } from "../dom.js";
 import { parseNum } from "../format.js";
-import { svgEl, tooltip, placeTooltip } from "./svg.js";
+import { svgEl, tooltip, placeTooltip, textScale } from "./svg.js";
 import { renderTable, strideIndices, describeChart } from "./table.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { simSequence, safeYearFrom } from "../engine/simulate.js";
@@ -37,16 +37,18 @@ export function drawSequence() {
 
 function drawSeqChart(d, target, safeYear) {
   const svg = el("seq-chart"); svg.innerHTML = "";
-  const W = 760, H = 300, m = { t: 16, r: 18, b: 40, l: 46 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+  // 46 is enough for "100%" at desktop text size but not once the glyphs grow, so
+  // the enlarged case gets a wider base too. Desktop geometry is unchanged.
+  const k = textScale(), W = 760, H = 300, m = { t: 16, r: (k > 1 ? 30 : 18) * k, b: 40 * k, l: (k > 1 ? 58 : 46) * k }, iw = W - m.l - m.r, ih = H - m.t - m.b;
   const A = d.A, T = d.h, ca = d.ca, span = Math.max(1, T - A);
   const xOf = y => m.l + (y - A) / span * iw, yOf = v => m.t + ih - (v / 100) * ih;
   const g = svgEl("g", { class: "grid" }); svg.appendChild(g);
   const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
-  for (let i = 0; i <= 5; i++) { const yv = i * 20, yy = yOf(yv); g.appendChild(svgEl("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy })); const t = svgEl("text", { x: m.l - 8, y: yy + 3.5, "text-anchor": "end" }); t.textContent = yv + "%"; ax.appendChild(t); }
-  const xstep = span <= 35 ? 5 : 10;
-  for (let y = A; y <= T; y += xstep) { const t = svgEl("text", { x: xOf(y), y: H - m.b + 16, "text-anchor": "middle" }); t.textContent = ca + y; ax.appendChild(t); }
+  for (let i = 0; i <= 5; i++) { const yv = i * 20, yy = yOf(yv); g.appendChild(svgEl("line", { x1: m.l, y1: yy, x2: W - m.r, y2: yy })); const t = svgEl("text", { x: m.l - 8 * k, y: yy + 3.5 * k, "text-anchor": "end" }); t.textContent = yv + "%"; ax.appendChild(t); }
+  const xstep = span <= 35 ? (k > 1.5 ? 10 : 5) : (k > 1.5 ? 20 : 10);
+  for (let y = A; y <= T; y += xstep) { const t = svgEl("text", { x: xOf(y), y: H - m.b + 16 * k, "text-anchor": "middle" }); t.textContent = ca + y; ax.appendChild(t); }
   svg.appendChild(svgEl("line", { x1: m.l, x2: W - m.r, y1: yOf(target), y2: yOf(target), stroke: "var(--good)", "stroke-width": 1, "stroke-dasharray": "3 3", opacity: .7 }));
-  const tl = svgEl("text", { class: "axis-title", x: W - m.r, y: yOf(target) - 4, "text-anchor": "end" }); tl.setAttribute("fill", "var(--good)"); tl.textContent = target + "% target"; svg.appendChild(tl);
+  const tl = svgEl("text", { class: "axis-title", x: W - m.r, y: yOf(target) - 4 * k, "text-anchor": "end" }); tl.setAttribute("fill", "var(--good)"); tl.textContent = target + "% target"; svg.appendChild(tl);
   let dp = "", started = false;
   for (let N = A; N <= T; N++) { const v = d.cond[N]; if (isNaN(v)) { started = false; continue; } dp += (started ? "L" : "M") + xOf(N) + "," + yOf(v); started = true; }
   svg.appendChild(svgEl("path", { d: dp, fill: "none", stroke: "var(--brand)", "stroke-width": 2.4, "stroke-linejoin": "round" }));
@@ -54,10 +56,11 @@ function drawSeqChart(d, target, safeYear) {
     const cx = xOf(safeYear);
     svg.appendChild(svgEl("line", { x1: cx, x2: cx, y1: m.t, y2: m.t + ih, stroke: "var(--ink)", "stroke-width": 1.2, "stroke-dasharray": "4 3", opacity: .55 }));
     svg.appendChild(svgEl("circle", { cx, cy: yOf(d.cond[safeYear]), r: 5, fill: "var(--ink)", stroke: "var(--surface)", "stroke-width": 2 }));
-    const lbl = svgEl("text", { x: cx + (cx > W / 2 ? -8 : 8), y: m.t + 8, "text-anchor": cx > W / 2 ? "end" : "start", class: "axis-title" }); lbl.setAttribute("font-weight", "600"); lbl.textContent = "safe from age " + (ca + safeYear); svg.appendChild(lbl);
+    const lbl = svgEl("text", { x: cx + (cx > W / 2 ? -8 : 8), y: m.t + 8 * k, "text-anchor": cx > W / 2 ? "end" : "start", class: "axis-title" }); lbl.setAttribute("font-weight", "600"); lbl.textContent = "safe from age " + (ca + safeYear); svg.appendChild(lbl);
   }
-  const yt = svgEl("text", { class: "axis-title", transform: `translate(13,${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = "Success if on track"; svg.appendChild(yt);
-  const xt = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 4, "text-anchor": "middle" }); xt.textContent = "Age (still at or above your retirement balance)"; svg.appendChild(xt);
+  const yt = svgEl("text", { class: "axis-title", transform: `translate(${13 * k},${m.t + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = "Success if on track"; svg.appendChild(yt);
+  // The long form doesn't fit at phone text size; the card subtitle says the same.
+  const xt = svgEl("text", { class: "axis-title", x: m.l + iw / 2, y: H - 4 * k, "text-anchor": "middle" }); xt.textContent = k > 1.5 ? "Age" : "Age (still at or above your retirement balance)"; svg.appendChild(xt);
   const dot = svgEl("circle", { r: 4, fill: "var(--brand)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
   const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
   seqChartState = { svg, W, m, iw, ih, A, T, span, ca, xOf, yOf, d, dot, rect }; attachSeqHover();

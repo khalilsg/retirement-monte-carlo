@@ -127,5 +127,9 @@ export function init() {
   buildHeatOptions();
   fillHeatRange("x");
   fillHeatRange("y");
+  // A 20x20 surface is ~13px per cell on a phone — too fine to read, and far too
+  // fine to tap. Start coarser there; the Columns/Rows inputs still say what's
+  // being drawn, so this changes the default rather than overriding the control.
+  if (window.innerWidth < 620) { el("hx-steps").value = "12"; el("hy-steps").value = "12"; }
   loadInitial();
 }

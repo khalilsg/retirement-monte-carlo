@@ -10,6 +10,19 @@ export function svgEl(tag, attrs) {
   return e;
 }
 
+// How much bigger chart text is than its 10px desktop size at the current width.
+//
+// Every chart draws into a fixed 760-wide viewBox that scales to its container, so
+// on a phone (~0.38x) 10px labels land on screen at under 4px. app.css bumps the
+// SVG font sizes back up on the same three breakpoints — but bigger glyphs need
+// proportionally bigger gutters, or the axis labels run straight through the
+// rotated axis title. Anything that reserves room for text multiplies by this.
+// Keep the breakpoints here in step with the ones in app.css.
+export function textScale() {
+  const w = window.innerWidth;
+  return w <= 400 ? 2.5 : w <= 520 ? 1.9 : w <= 700 ? 1.4 : 1;
+}
+
 // Round a value up to a "nice" axis maximum (1, 2, 2.5, 5, 10 × 10^k).
 export function niceMax(v) {
   if (v <= 0) return 1;

@@ -19,6 +19,17 @@
      a slider drag, which would flood a screen reader. See ui/announce.js. -->
 <div id="a11y-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<!-- Phone-only: the single-column layout stacks controls first, which leaves the
+     headline number about two screens below the fold — you could drag a slider and
+     watch nothing happen. This pins a copy of it to the top. aria-hidden because
+     the outcome card is the canonical copy and #a11y-status already announces
+     changes; exposing it would just say the number twice. -->
+<div class="mini-result" id="mini-result" aria-hidden="true">
+  <span class="mini-k">Success</span>
+  <span class="mini-v" id="mini-prob">—</span>
+  <span class="mini-verdict" id="mini-verdict"></span>
+</div>
+
 <div class="wrap">
   <header class="masthead">
     <div class="masthead-top">

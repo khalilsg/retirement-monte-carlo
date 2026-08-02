@@ -193,7 +193,7 @@
   .sweep-controls .field { margin: 0; }
   .sweep-controls label { font-size: 11px; }
 
-  .tooltip { position: fixed; pointer-events: none; z-index: 20; background: #1c2637; color: #e8eef6; padding: 8px 10px; border-radius: 7px; font-size: 11.5px; font-family: var(--font-mono); line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,.4); opacity: 0; transition: opacity .1s; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tooltip { position: fixed; pointer-events: none; z-index: 40; background: #1c2637; color: #e8eef6; padding: 8px 10px; border-radius: 7px; font-size: 11.5px; font-family: var(--font-mono); line-height: 1.5; box-shadow: 0 6px 20px rgba(0,0,0,.4); opacity: 0; transition: opacity .1s; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .tooltip .tt-t { font-family: var(--font-sans); font-weight: 600; margin-bottom: 3px; color: #ffffff; }
   .tooltip b { color: #9fb2ff; font-weight: 600; }
 
@@ -259,3 +259,72 @@
   .nerd-body { padding-top: 14px; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ---------- Narrow screens ---------- */
+
+  /* The pinned headline. Desktop keeps it hidden — the outcome card is right there. */
+  .mini-result { display: none; }
+
+  @media (max-width: 880px) {
+    .mini-result {
+      display: flex; align-items: baseline; gap: 10px;
+      position: sticky; top: 0; z-index: 30;
+      padding: 9px 22px; background: var(--surface);
+      border-bottom: 1px solid var(--edge); box-shadow: 0 2px 10px rgba(0,0,0,.07);
+    }
+    .mini-k { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .mini-v { font-family: var(--font-mono); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .mini-verdict { font-size: 12px; font-weight: 600; margin-left: auto; text-align: right; }
+
+    /* iOS Safari zooms the whole page when a focused field is under 16px, so every
+       tap into an input jerked the layout. 16px is the threshold, not a preference.
+       (The fix is never `maximum-scale=1` in the viewport meta — that would block
+       pinch-zoom, which is its own accessibility failure.) */
+    /* The later three selectors out-specify the bare element one, so they have to
+       be named explicitly or they keep their 12–13px and keep triggering the zoom. */
+    input[type="text"], input[type="number"], select, .val-num,
+    #scen-code, .stream-top .s-label, .mini input { font-size: 16px; }
+
+    /* Thumb-sized targets. Everything below was 17–34px tall. */
+    input[type="text"], input[type="number"]:not(.val-num), select, .btn, .btn.small { min-height: 44px; }
+    .val-num { min-height: 44px; padding: 4px 7px; width: 5.4ch; }
+    .val-num.wide { width: 7.2ch; }
+    .s-del { flex: 0 0 44px; min-height: 44px; font-size: 20px; }
+    .stream-top .s-label, .mini input { min-height: 44px; }
+    /* Padding rather than flex: `display:flex` on a summary drops its disclosure
+       marker in Chrome, and .method rows rely on the native one. */
+    summary, details.nerd > summary, .scen-more > summary { padding-top: 14px; padding-bottom: 14px; }
+    .skip-link { padding: 12px 16px; }
+    /* The whole .cola label toggles the box, so the row is the real target — but
+       size the box itself past the 24px minimum for anyone aiming straight at it. */
+    .cola { padding: 7px 0; }
+    .cola input { width: 24px; height: 24px; }
+
+    /* Once .outcome-head wraps, a right-aligned block under left-aligned content
+       reads as a layout bug. */
+    .prob-label { text-align: left; }
+  }
+
+  /* Chart text is drawn in user units on a fixed 760-wide viewBox, so it scales
+     with the container: at a 375px viewport that's 0.38x, which put 10px axis
+     labels on screen at under 4px. These steps hold the rendered size near 10px.
+     They only start once the container is meaningfully narrower than the viewBox —
+     above ~700px the natural size is already right. */
+  @media (max-width: 700px) {
+    .axis text { font-size: 14px; }
+    .axis-title { font-size: 15px; }
+    #tornado text.tor-name { font-size: 15px; }
+    #tornado text.tor-val { font-size: 13px; }
+  }
+  @media (max-width: 520px) {
+    .axis text { font-size: 19px; }
+    .axis-title { font-size: 20px; }
+    #tornado text.tor-name { font-size: 21px; }
+    #tornado text.tor-val { font-size: 18px; }
+  }
+  @media (max-width: 400px) {
+    .axis text { font-size: 25px; }
+    .axis-title { font-size: 26px; }
+    #tornado text.tor-name { font-size: 27px; }
+    #tornado text.tor-val { font-size: 23px; }
+  }

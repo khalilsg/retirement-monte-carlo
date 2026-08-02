@@ -2,7 +2,7 @@
 // a target-frontier contour and a "now" marker.
 import { el } from "../dom.js";
 import { parseNum, escapeHtml, inputVal } from "../format.js";
-import { svgEl } from "./svg.js";
+import { svgEl, textScale } from "./svg.js";
 import { renderGridTable, strideIndices, describeChart } from "./table.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -40,7 +40,15 @@ export function renderHeat() {
   const svg = el("heat"); svg.innerHTML = "";
   const p = readParams(), nSims = currentSims();
   const xk = el("hx-var").value, yk = el("hy-var").value, xm = getMeta(xk, p.streams), ym = getMeta(yk, p.streams);
-  const W = 760, H = 470, pt = 16, pl = 66, pr = 18, ih = 300, iw = W - pl - pr;
+  // The axis gutter, the tick gaps and the legend strip below the grid all hold
+  // text, so they scale with it; H grows to match rather than letting the legend
+  // slide off the bottom of a fixed viewBox.
+  const k = textScale(), W = 760, pt = 16, pl = 66 * k, pr = 18, ih = 300, iw = W - pl - pr;
+  // Everything below the grid is text, so the height it needs grows with it. The
+  // 78 is the breathing room under the legend and stays fixed; at k=1 this is
+  // exactly the original 470, so desktop geometry is untouched.
+  const H = 394 + 76 * k;
+  svg.setAttribute("viewBox", "0 0 " + W + " " + Math.round(H));
   if (xk === yk) {
     const t = svgEl("text", { x: W / 2, y: 150, "text-anchor": "middle", class: "axis-title" }); t.textContent = "Pick two different parameters for the X and Y axes."; svg.appendChild(t);
     describeChart("heat", "Pick two different parameters for the X and Y axes.");
@@ -75,12 +83,12 @@ export function renderHeat() {
   }
   if (fd) svg.appendChild(svgEl("path", { d: fd, stroke: "var(--warn)", "stroke-width": 2.5, fill: "none", "stroke-linecap": "round", opacity: .95 }));
   const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
-  const nx = Math.min(6, cols - 1);
-  for (let t = 0; t <= nx; t++) { const i = Math.round(t / nx * (cols - 1)); const tx = svgEl("text", { x: xpx(i) + cellW / 2, y: pt + ih + 16, "text-anchor": "middle" }); tx.textContent = sweepFmt(xm, xs[i], false); ax.appendChild(tx); }
-  const ny = Math.min(6, rows - 1);
-  for (let t = 0; t <= ny; t++) { const j = Math.round(t / ny * (rows - 1)); const ty = svgEl("text", { x: pl - 8, y: ypxRow(j) + cellH / 2 + 3.5, "text-anchor": "end" }); ty.textContent = sweepFmt(ym, ys[j], false); ax.appendChild(ty); }
-  const xt = svgEl("text", { class: "axis-title", x: pl + iw / 2, y: pt + ih + 34, "text-anchor": "middle" }); xt.textContent = xm.label; svg.appendChild(xt);
-  const yt = svgEl("text", { class: "axis-title", transform: `translate(15,${pt + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = ym.label; svg.appendChild(yt);
+  const nx = Math.min(k > 1.5 ? 3 : 6, cols - 1);
+  for (let t = 0; t <= nx; t++) { const i = Math.round(t / nx * (cols - 1)); const tx = svgEl("text", { x: xpx(i) + cellW / 2, y: pt + ih + 16 * k, "text-anchor": "middle" }); tx.textContent = sweepFmt(xm, xs[i], false); ax.appendChild(tx); }
+  const ny = Math.min(k > 1.5 ? 4 : 6, rows - 1);
+  for (let t = 0; t <= ny; t++) { const j = Math.round(t / ny * (rows - 1)); const ty = svgEl("text", { x: pl - 8 * k, y: ypxRow(j) + cellH / 2 + 3.5 * k, "text-anchor": "end" }); ty.textContent = sweepFmt(ym, ys[j], false); ax.appendChild(ty); }
+  const xt = svgEl("text", { class: "axis-title", x: pl + iw / 2, y: pt + ih + 34 * k, "text-anchor": "middle" }); xt.textContent = xm.label; svg.appendChild(xt);
+  const yt = svgEl("text", { class: "axis-title", transform: `translate(${15 * k},${pt + ih / 2}) rotate(-90)`, "text-anchor": "middle" }); yt.textContent = ym.label; svg.appendChild(yt);
   const cxv = xm.cur(p), cyv = ym.cur(p);
   if (cxv >= xs[0] && cxv <= xs[cols - 1] && cyv >= ys[0] && cyv <= ys[rows - 1]) {
     const fi = (cxv - xs[0]) / (xs[cols - 1] - xs[0]) * (cols - 1), fj = (cyv - ys[0]) / (ys[rows - 1] - ys[0]) * (rows - 1);
@@ -93,14 +101,16 @@ export function renderHeat() {
   grad.appendChild(svgEl("stop", { offset: String(Math.max(0, Math.min(1, target / 100))), "stop-color": `rgb(${ramp.mid.join(",")})` }));
   grad.appendChild(svgEl("stop", { offset: "1", "stop-color": heatCol(ramp, 100, target) }));
   defs.appendChild(grad); svg.appendChild(defs);
-  const lx = pl, lw = 200, ly = pt + ih + 52;
-  const ltt = svgEl("text", { class: "axis-title", x: lx, y: ly - 6 }); ltt.textContent = "Success probability"; svg.appendChild(ltt);
-  svg.appendChild(svgEl("rect", { x: lx, y: ly, width: lw, height: 11, fill: "url(#hg)", rx: 2, stroke: "var(--hairline)", "stroke-width": 1 }));
+  // Cap the ramp's width: at full scale a 200*k bar pushes the "target" caption
+  // off the right edge of the viewBox.
+  const lx = pl, lw = Math.min(200 * k, 340), ly = pt + ih + 52 * k;
+  const ltt = svgEl("text", { class: "axis-title", x: lx, y: ly - 6 * k }); ltt.textContent = "Success probability"; svg.appendChild(ltt);
+  svg.appendChild(svgEl("rect", { x: lx, y: ly, width: lw, height: 11 * k, fill: "url(#hg)", rx: 2, stroke: "var(--hairline)", "stroke-width": 1 }));
   const la = svgEl("g", { class: "axis" }); svg.appendChild(la);
-  [0, 50, 100].forEach(v => { const t = svgEl("text", { x: lx + lw * v / 100, y: ly + 24, "text-anchor": "middle" }); t.textContent = v + "%"; la.appendChild(t); });
+  [0, 50, 100].forEach(v => { const t = svgEl("text", { x: lx + lw * v / 100, y: ly + 24 * k, "text-anchor": "middle" }); t.textContent = v + "%"; la.appendChild(t); });
   const tmx = lx + lw * target / 100;
-  svg.appendChild(svgEl("path", { d: `M${tmx},${ly - 2}L${tmx - 4},${ly - 8}L${tmx + 4},${ly - 8}Z`, fill: "var(--warn)" }));
-  const ftl = svgEl("text", { class: "axis-title", x: lx + lw + 16, y: ly + 9 }); ftl.setAttribute("fill", "var(--warn)"); ftl.textContent = "— target " + target + "%"; svg.appendChild(ftl);
+  svg.appendChild(svgEl("path", { d: `M${tmx},${ly - 2}L${tmx - 4 * k},${ly - 8 * k}L${tmx + 4 * k},${ly - 8 * k}Z`, fill: "var(--warn)" }));
+  const ftl = svgEl("text", { class: "axis-title", x: lx + lw + 16, y: ly + 9 * k }); ftl.setAttribute("fill", "var(--warn)"); ftl.textContent = "— target " + target + "%"; svg.appendChild(ftl);
   const hi = svgEl("rect", { fill: "none", stroke: "var(--ink)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(hi);
   const rect = svgEl("rect", { x: pl, y: pt, width: iw, height: ih, fill: "transparent", stroke: "var(--hairline)", "stroke-width": 1 }); svg.appendChild(rect);
   heatState = { svg, W, H, pl, pt, iw, ih, cols, rows, cellW, cellH, xs, ys, grid, xm, ym, hi, rect }; attachHeatHover();

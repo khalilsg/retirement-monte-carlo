@@ -2,7 +2,7 @@
 // ± range, everything else held at the current plan.
 import { el } from "../dom.js";
 import { escapeHtml } from "../format.js";
-import { svgEl, tooltip, placeTooltip } from "./svg.js";
+import { svgEl, tooltip, placeTooltip, textScale } from "./svg.js";
 import { renderTable, describeChart } from "./table.js";
 import { SWEEP_META, streamMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
@@ -33,7 +33,12 @@ let tornadoState = null;
 export function renderTornado() {
   const svg = el("tornado"); svg.innerHTML = "";
   const { base, rows } = tornadoData();
-  const W = 760, m = { t: 26, r: 20, b: 30, l: 150 }, rowH = 30, iw = W - m.l - m.r;
+  // Row height and the name gutter both hold text, so both grow with it — the
+  // viewBox height is derived below, so taller rows just make a taller chart
+  // rather than crowding.
+  // r has to hold the right-hand value label ("$1.72M"), which is drawn outside the
+  // plot area — 20 units is enough at desktop text size and clips once glyphs grow.
+  const k = textScale(), W = 760, m = { t: 26, r: (k > 1 ? 34 : 20) * k, b: 30 * k, l: 150 * k }, rowH = 30 * k, iw = W - m.l - m.r;
   const H = m.t + rows.length * rowH + m.b;
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
   if (!rows.length) {
@@ -45,20 +50,20 @@ export function renderTornado() {
   describeTornado(base, rows);
   const xOf = v => m.l + v / 100 * iw, plotBottom = m.t + rows.length * rowH;
   const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
-  for (let v = 0; v <= 100; v += 25) { const x = xOf(v); ax.appendChild(svgEl("line", { x1: x, y1: m.t, x2: x, y2: plotBottom, stroke: "var(--hairline)", "stroke-width": 1 })); const t = svgEl("text", { x, y: plotBottom + 16, "text-anchor": "middle" }); t.textContent = v + "%"; ax.appendChild(t); }
+  for (let v = 0; v <= 100; v += (k > 1.5 ? 50 : 25)) { const x = xOf(v); ax.appendChild(svgEl("line", { x1: x, y1: m.t, x2: x, y2: plotBottom, stroke: "var(--hairline)", "stroke-width": 1 })); const t = svgEl("text", { x, y: plotBottom + 16 * k, "text-anchor": "middle" }); t.textContent = v + "%"; ax.appendChild(t); }
   const bx = xOf(base);
   svg.appendChild(svgEl("line", { x1: bx, y1: m.t - 6, x2: bx, y2: plotBottom, stroke: "var(--ink)", "stroke-width": 1.4, "stroke-dasharray": "4 3", opacity: .6 }));
   const nowl = svgEl("text", { x: bx, y: m.t - 10, "text-anchor": "middle", class: "tor-val" }); nowl.setAttribute("fill", "var(--ink)"); nowl.setAttribute("font-weight", "600"); nowl.textContent = "now " + base.toFixed(0) + "%"; svg.appendChild(nowl);
-  const barH = 13;
+  const barH = 13 * k;
   rows.forEach((row, i) => {
     const cy = m.t + i * rowH + rowH / 2, s0 = Math.min(row.sLo, row.sHi), s1 = Math.max(row.sLo, row.sHi);
     const x0 = xOf(s0), x1 = xOf(s1), xb = Math.max(x0, Math.min(x1, bx));
     if (xb > x0 + .5) svg.appendChild(svgEl("rect", { x: x0, y: cy - barH / 2, width: xb - x0, height: barH, fill: "var(--warn)", opacity: .72, rx: 2 }));
     if (x1 > xb + .5) svg.appendChild(svgEl("rect", { x: xb, y: cy - barH / 2, width: x1 - xb, height: barH, fill: "var(--brand)", opacity: .72, rx: 2 }));
-    const nm = svgEl("text", { x: m.l - 10, y: cy + 3.5, "text-anchor": "end", class: "tor-name" }); nm.textContent = row.label; svg.appendChild(nm);
+    const nm = svgEl("text", { x: m.l - 10 * k, y: cy + 3.5 * k, "text-anchor": "end", class: "tor-name" }); nm.textContent = row.label; svg.appendChild(nm);
     const lowerIn = row.sLo <= row.sHi ? row.lo : row.hi, higherIn = row.sLo <= row.sHi ? row.hi : row.lo;
-    const lv = svgEl("text", { x: x0 - 4, y: cy + 3.5, "text-anchor": "end", class: "tor-val" }); lv.textContent = sweepFmt(row.meta, lowerIn, false); svg.appendChild(lv);
-    const rv = svgEl("text", { x: x1 + 4, y: cy + 3.5, "text-anchor": "start", class: "tor-val" }); rv.textContent = sweepFmt(row.meta, higherIn, false); svg.appendChild(rv);
+    const lv = svgEl("text", { x: x0 - 4 * k, y: cy + 3.5 * k, "text-anchor": "end", class: "tor-val" }); lv.textContent = sweepFmt(row.meta, lowerIn, false); svg.appendChild(lv);
+    const rv = svgEl("text", { x: x1 + 4 * k, y: cy + 3.5 * k, "text-anchor": "start", class: "tor-val" }); rv.textContent = sweepFmt(row.meta, higherIn, false); svg.appendChild(rv);
   });
   const rect = svgEl("rect", { x: 0, y: m.t, width: W, height: rows.length * rowH, fill: "transparent" }); svg.appendChild(rect);
   tornadoState = { svg, W, H, m, rowH, rows, base, xOf, rect }; attachTornadoHover();

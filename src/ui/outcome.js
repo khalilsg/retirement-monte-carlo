@@ -13,6 +13,11 @@ export function renderOutcome(r) {
   else if (r.successPct >= 65) { color = "var(--warn)"; label = "Uncertain — worth tightening"; }
   else { color = "var(--danger)"; label = "At risk of depletion"; }
   el("prob").style.color = color; el("verdict").textContent = label; el("verdict").style.color = color;
+  // The phone-only pinned copy (hidden by CSS on desktop).
+  el("mini-prob").textContent = r.successPct.toFixed(1) + "%";
+  el("mini-prob").style.color = color;
+  el("mini-verdict").textContent = label;
+  el("mini-verdict").style.color = color;
   // Wilson 95% confidence interval for the success proportion (Monte Carlo sampling error)
   const n = currentSims(), z = 1.96, ph = r.successPct / 100, denom = 1 + z * z / n;
   const cen = (ph + z * z / (2 * n)) / denom, hw = (z / denom) * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n));
