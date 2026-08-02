@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { parseNum, escapeHtml, inputVal } from "../format.js";
 import { svgEl } from "./svg.js";
+import { renderGridTable, strideIndices, describeChart } from "./table.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { ensureIndexBlock } from "../engine/rng.js";
@@ -40,7 +41,12 @@ export function renderHeat() {
   const p = readParams(), nSims = currentSims();
   const xk = el("hx-var").value, yk = el("hy-var").value, xm = getMeta(xk, p.streams), ym = getMeta(yk, p.streams);
   const W = 760, H = 470, pt = 16, pl = 66, pr = 18, ih = 300, iw = W - pl - pr;
-  if (xk === yk) { const t = svgEl("text", { x: W / 2, y: 150, "text-anchor": "middle", class: "axis-title" }); t.textContent = "Pick two different parameters for the X and Y axes."; svg.appendChild(t); return; }
+  if (xk === yk) {
+    const t = svgEl("text", { x: W / 2, y: 150, "text-anchor": "middle", class: "axis-title" }); t.textContent = "Pick two different parameters for the X and Y axes."; svg.appendChild(t);
+    describeChart("heat", "Pick two different parameters for the X and Y axes.");
+    renderGridTable("heat-table", { caption: "Pick two different parameters for the X and Y axes.", corner: "", colHeads: [], rowHeads: [], cells: [] });
+    return;
+  }
   const cols = Math.max(3, Math.min(50, Math.round(parseNum(el("hx-steps").value)) || 20));
   const rows = Math.max(3, Math.min(36, Math.round(parseNum(el("hy-steps").value)) || 20));
   const target = Math.max(0, Math.min(100, parseNum(el("h-target").value) || 0));
@@ -98,6 +104,26 @@ export function renderHeat() {
   const hi = svgEl("rect", { fill: "none", stroke: "var(--ink)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(hi);
   const rect = svgEl("rect", { x: pl, y: pt, width: iw, height: ih, fill: "transparent", stroke: "var(--hairline)", "stroke-width": 1 }); svg.appendChild(rect);
   heatState = { svg, W, H, pl, pt, iw, ih, cols, rows, cellW, cellH, xs, ys, grid, xm, ym, hi, rect }; attachHeatHover();
+  describeHeat(grid, xs, ys, xm, ym, cols, rows, target);
+}
+
+// A 20×20 surface read by cell colour is unreachable without a mouse and unreadable
+// without colour vision. The table samples it down to a scannable grid — the whole
+// 400 cells would be noise, and the frontier is what the chart is actually for.
+function describeHeat(grid, xs, ys, xm, ym, cols, rows, target) {
+  describeChart("heat", `Heatmap of success probability across ${xm.label.toLowerCase()} on the horizontal axis ` +
+    `(${sweepFmt(xm, xs[0], false)} to ${sweepFmt(xm, xs[cols - 1], false)}) and ${ym.label.toLowerCase()} on the vertical ` +
+    `(${sweepFmt(ym, ys[0], false)} to ${sweepFmt(ym, ys[rows - 1], false)}), with a frontier drawn at ${target} percent. ` +
+    `Corner values run from ${grid[0][0].toFixed(0)} to ${grid[rows - 1][cols - 1].toFixed(0)} percent. ` +
+    `A sampled grid is in the data table below.`);
+  const ci = strideIndices(cols, 8), ri = strideIndices(rows, 8).slice().reverse();  // top row first, as drawn
+  renderGridTable("heat-table", {
+    caption: `Success probability for each combination of ${xm.label.toLowerCase()} (columns) and ${ym.label.toLowerCase()} (rows), sampled from the full grid. Your target frontier is ${target}%.`,
+    corner: `${ym.label} \\ ${xm.label}`,
+    colHeads: ci.map(i => sweepFmt(xm, xs[i], false)),
+    rowHeads: ri.map(j => sweepFmt(ym, ys[j], false)),
+    cells: ri.map(j => ci.map(i => grid[j][i].toFixed(1) + "%")),
+  });
 }
 
 function attachHeatHover() {

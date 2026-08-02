@@ -1,8 +1,17 @@
+  /* Two greys carry the type hierarchy below --ink: --muted for secondary prose,
+     --faint for the smallest labels. Both clear WCAG AA (4.5:1) against every
+     surface they land on, which is why they sit closer together than a purely
+     visual ramp would put them — the small type here is 10–12.5px, so none of it
+     qualifies for the large-text exemption.
+     --hairline and --edge split what used to be one token: --hairline stays a
+     decorative rule (card borders, chart gridlines, table rules) with no contrast
+     duty, while --edge bounds interactive controls and clears the 3:1 that WCAG
+     1.4.11 requires of a UI component boundary. */
   :root {
     --paper:#E9EDF3; --surface:#FFFFFF; --surface-2:#F3F6FA;
-    --ink:#14202E; --muted:#586A7C; --faint:#8395A6; --hairline:#D6DEE8;
+    --ink:#14202E; --muted:#44586B; --faint:#5C6E80; --hairline:#D6DEE8; --edge:#748496;
     --brand:#3B4DA6; --brand-strong:#2C3B84; --brand-soft:#E6E9F7;
-    --good:#157F5B; --warn:#A9760F; --danger:#B23B2E;
+    --good:#0D6A4B; --warn:#8C6100; --danger:#B23B2E;
     --band-outer:#CBD2F0; --band-mid:#93A0E0; --band-line:#2C3B84;
     --shadow: 0 1px 2px rgba(20,32,46,.05), 0 6px 20px rgba(20,32,46,.06);
     --font-serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
@@ -12,7 +21,7 @@
   @media (prefers-color-scheme: dark) {
     :root {
       --paper:#0C131C; --surface:#131E2B; --surface-2:#18273A;
-      --ink:#E7EDF4; --muted:#94A5B7; --faint:#6C7F92; --hairline:#243747;
+      --ink:#E7EDF4; --muted:#A6B6C6; --faint:#8B9CAD; --hairline:#243747; --edge:#647B92;
       --brand:#8E9BEE; --brand-strong:#AEB8F6; --brand-soft:#1E2E48;
       --good:#3FB488; --warn:#D6A23E; --danger:#E3695B;
       --band-outer:#2C3C61; --band-mid:#4A5DA0; --band-line:#AEB8F6;
@@ -21,7 +30,7 @@
   }
   :root[data-theme="dark"] {
     --paper:#0C131C; --surface:#131E2B; --surface-2:#18273A;
-    --ink:#E7EDF4; --muted:#94A5B7; --faint:#6C7F92; --hairline:#243747;
+    --ink:#E7EDF4; --muted:#A6B6C6; --faint:#8B9CAD; --hairline:#243747; --edge:#647B92;
     --brand:#8E9BEE; --brand-strong:#AEB8F6; --brand-soft:#1E2E48;
     --good:#3FB488; --warn:#D6A23E; --danger:#E3695B;
     --band-outer:#2C3C61; --band-mid:#4A5DA0; --band-line:#AEB8F6;
@@ -29,9 +38,9 @@
   }
   :root[data-theme="light"] {
     --paper:#E9EDF3; --surface:#FFFFFF; --surface-2:#F3F6FA;
-    --ink:#14202E; --muted:#586A7C; --faint:#8395A6; --hairline:#D6DEE8;
+    --ink:#14202E; --muted:#44586B; --faint:#5C6E80; --hairline:#D6DEE8; --edge:#748496;
     --brand:#3B4DA6; --brand-strong:#2C3B84; --brand-soft:#E6E9F7;
-    --good:#157F5B; --warn:#A9760F; --danger:#B23B2E;
+    --good:#0D6A4B; --warn:#8C6100; --danger:#B23B2E;
     --band-outer:#CBD2F0; --band-mid:#93A0E0; --band-line:#2C3B84;
     --shadow: 0 1px 2px rgba(20,32,46,.05), 0 6px 20px rgba(20,32,46,.06);
   }
@@ -41,14 +50,33 @@
   body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 22px 80px; }
 
+  /* Off-screen but still announced — for the live region and for label text that
+     would be redundant on screen. Not `display:none`, which would mute it. */
+  .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+
+  /* The controls column runs to ~40 focusable elements, so a keyboard user needs a
+     way past it. Hidden until focused. */
+  .skip-link { position: absolute; left: 8px; top: -60px; z-index: 50; padding: 10px 14px; background: var(--surface); color: var(--brand); border: 1px solid var(--edge); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: var(--shadow); transition: top .12s; }
+  .skip-link:focus { top: 8px; }
+
+  /* One visible focus treatment for everything focusable. The UA default ring is
+     unreliable against these custom surfaces, and `summary` carries custom markers. */
+  :where(a, button, summary, [tabindex]):focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+
   header.masthead { margin-bottom: 26px; }
   .masthead-top { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
   .eyebrow { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--brand); font-weight: 600; }
+  h2.eyebrow { margin: 0; font-family: var(--font-sans); }
   h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -.01em; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.08; margin: 8px 0 10px; text-wrap: balance; }
   .lede { color: var(--muted); max-width: 62ch; font-size: 15.5px; margin: 0; }
 
   .layout { display: grid; grid-template-columns: 340px 1fr; gap: 22px; align-items: start; }
   @media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+  /* Grid and flex items default to min-width:auto, which means they refuse to
+     shrink below their content — so an overflow-x scroller *inside* one can't
+     contain anything, and a wide data table drags the whole page into horizontal
+     scroll on a phone. These two zeroes are what make .scroll-x actually work. */
+  .layout > * { min-width: 0; }
 
   .card { background: var(--surface); border: 1px solid var(--hairline); border-radius: 12px; box-shadow: var(--shadow); }
   .controls { position: sticky; top: 18px; padding: 20px 20px 22px; max-height: calc(100vh - 36px); overflow-y: auto; }
@@ -58,16 +86,33 @@
   .card-sub { color: var(--faint); font-size: 12.5px; margin: 0 0 18px; }
 
   .field { margin-bottom: 16px; }
-  .field label { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); font-weight: 500; margin-bottom: 6px; gap: 8px; }
-  .field label .val { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* The value sits opposite its label on one row. It's a separate control from the
+     slider below it, so the row is a plain div — a <label for> may only name one. */
+  .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .field label, .field-label { display: block; font-size: 12.5px; color: var(--muted); font-weight: 500; margin-bottom: 6px; }
+  .field-head label, .field-head .field-label { margin-bottom: 0; }
+  .val { font-family: var(--font-mono); font-size: 13px; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* The live readout doubles as an entry field, so anyone who can't work a slider
+     can type the figure instead. It's sized to its digits and borderless until
+     hovered or focused, so it still reads as a readout rather than a form field.
+     Native spin buttons are ~10px targets — worse than the slider for the very
+     people this is for — so they're dropped; arrow keys step the field itself. */
+  .val-num { width: 4.6ch; padding: 1px 3px; border: 1px solid transparent; background: transparent; color: var(--ink); font-family: var(--font-mono); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; border-radius: 5px; appearance: textfield; -moz-appearance: textfield; }
+  .val-num.wide { width: 6.4ch; }
+  .val-num::-webkit-outer-spin-button, .val-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .val-num:hover { border-color: var(--edge); }
+  .val-num:focus { border-color: var(--brand); background: var(--surface-2); }
+  .val-num:out-of-range { border-color: var(--danger); color: var(--danger); }
+
   .input-money { position: relative; }
   .input-money::before { content: "$"; position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); font-family: var(--font-mono); font-size: 14px; }
   input[type="text"].money { padding-left: 24px; }
-  input[type="text"], select { width: 100%; padding: 9px 11px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink); border-radius: 8px; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  input[type="text"], input[type="number"]:not(.val-num), select { width: 100%; padding: 9px 11px; border: 1px solid var(--edge); background: var(--surface-2); color: var(--ink); border-radius: 8px; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
   select { font-family: var(--font-sans); cursor: pointer; }
-  input[type="text"]:focus, select:focus, input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  input:focus, select:focus, input[type="range"]:focus-visible, input[type="checkbox"]:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
 
-  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 4px; background: var(--hairline); margin: 8px 0 2px; }
+  input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 4px; background: var(--edge); margin: 8px 0 2px; }
   input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 17px; height: 17px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.25); cursor: pointer; }
   input[type="range"]::-moz-range-thumb { width: 15px; height: 15px; border-radius: 50%; background: var(--brand); border: 2px solid var(--surface); cursor: pointer; }
   .range-ends { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--faint); font-family: var(--font-mono); margin-top: 1px; }
@@ -77,12 +122,12 @@
   .subpanel .field label { font-size: 11.5px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
 
-  .btn { width: 100%; padding: 10px; border: 1px solid var(--hairline); background: var(--surface-2); color: var(--ink); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; font-weight: 500; }
+  .btn { width: 100%; padding: 10px; border: 1px solid var(--edge); background: var(--surface-2); color: var(--ink); border-radius: 8px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; font-weight: 500; }
   .btn:hover { border-color: var(--brand); color: var(--brand); }
   .btn:active { transform: translateY(1px); }
   .btn.small { padding: 7px; font-size: 12px; }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
-  .btn:disabled:hover { border-color: var(--hairline); color: var(--ink); }
+  .btn:disabled:hover { border-color: var(--edge); color: var(--ink); }
 
   /* Private mode: relative figures instead of dollars, for screen sharing. */
   .priv-toggle { width: auto; flex: none; padding: 7px 12px; white-space: nowrap; }
@@ -99,7 +144,7 @@
   .stream { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 9px; padding: 11px 11px 10px; margin-bottom: 8px; }
   .stream-top { display: flex; gap: 8px; margin-bottom: 8px; }
   .stream-top .s-label { flex: 1; padding: 6px 9px; font-family: var(--font-sans); font-size: 13px; }
-  .s-del { flex: 0 0 32px; border: 1px solid var(--hairline); background: var(--surface); border-radius: 7px; cursor: pointer; color: var(--faint); font-size: 17px; line-height: 1; }
+  .s-del { flex: 0 0 34px; min-height: 34px; border: 1px solid var(--edge); background: var(--surface); border-radius: 7px; cursor: pointer; color: var(--faint); font-size: 17px; line-height: 1; }
   .s-del:hover { color: var(--danger); border-color: var(--danger); }
   .stream .input-money { margin-bottom: 8px; }
   .stream-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
@@ -108,7 +153,8 @@
   .cola { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); cursor: pointer; margin: 0; font-weight: 500; }
   .cola input { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
 
-  .results { display: flex; flex-direction: column; gap: 22px; }
+  .results { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+  .results > * { min-width: 0; }
   .outcome { padding: 22px 24px 24px; }
   .outcome-head { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 14px; }
   .big-prob { font-family: var(--font-serif); font-weight: 600; line-height: .95; font-size: clamp(52px, 9vw, 78px); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
@@ -157,10 +203,14 @@
   details.method code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
   table.datatable { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; margin-top: 12px; font-variant-numeric: tabular-nums; }
+  table.datatable caption { text-align: left; color: var(--muted); font-family: var(--font-sans); font-size: 12px; padding-bottom: 8px; }
   table.datatable th, table.datatable td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--hairline); }
   table.datatable th:first-child, table.datatable td:first-child { text-align: left; }
-  table.datatable th { color: var(--faint); font-weight: 600; font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  table.datatable thead th { color: var(--faint); font-weight: 600; font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  table.datatable tbody th { font-weight: 600; color: var(--ink); }
+  /* A scrollable region must be reachable by keyboard to be scrollable by keyboard. */
   .scroll-x { overflow-x: auto; }
+  .scroll-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
   .heat-controls { display: grid; grid-template-columns: 1.4fr .9fr .9fr .7fr; gap: 12px; margin-bottom: 12px; }
   @media (max-width: 620px) { .heat-controls { grid-template-columns: 1fr 1fr; } }
@@ -184,6 +234,9 @@
   #seq-summary { font-size: 12.5px; color: var(--muted); }
 
   .scenario { background: var(--brand-soft); border: 1px solid var(--hairline); border-radius: 10px; padding: 12px; margin-bottom: 18px; }
+  /* --faint is tuned for the two card surfaces; on the tinted scenario panel it
+     lands just under 4.5:1, so hint text there steps up to --muted. */
+  .scenario .hint { color: var(--muted); }
   .scenario > select { margin-bottom: 8px; }
   .scenario-row { display: flex; gap: 8px; }
   .scenario-row + .scenario-row { margin-top: 8px; }

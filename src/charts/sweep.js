@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { parseNum, escapeHtml, inputVal } from "../format.js";
 import { svgEl, tooltip, placeTooltip } from "./svg.js";
+import { renderTable, strideIndices, describeChart } from "./table.js";
 import { getMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { ensureIndex } from "../engine/rng.js";
@@ -71,8 +72,15 @@ function attachSweepHover() {
 }
 
 function buildSweepTable(xs, ys, meta) {
-  let rows = "<tr><th>" + escapeHtml(meta.label) + "</th><th>Success</th></tr>";
-  const stride = Math.max(1, Math.round(xs.length / 20));
-  for (let i = 0; i < xs.length; i += stride) rows += `<tr><td>${sweepFmt(meta, xs[i], true)}</td><td>${ys[i].toFixed(1)}%</td></tr>`;
-  el("sweep-table").innerHTML = rows;
+  const idx = strideIndices(xs.length, 20);
+  renderTable("sweep-table", {
+    caption: `Success probability as ${meta.label.toLowerCase()} varies, with every other assumption held at your current plan.`,
+    cols: [meta.label, "Success"],
+    rows: idx.map(i => [sweepFmt(meta, xs[i], true), ys[i].toFixed(1) + "%"]),
+  });
+  // Which way the curve runs, and how far — the part you'd read off the shape.
+  const lo = ys[0], hi = ys[ys.length - 1], dir = hi > lo ? "rises" : hi < lo ? "falls" : "stays flat";
+  describeChart("sweep", `Line chart: success probability against ${meta.label.toLowerCase()}. ` +
+    `Across ${sweepFmt(meta, xs[0], false)} to ${sweepFmt(meta, xs[xs.length - 1], false)}, success ${dir} ` +
+    `from ${lo.toFixed(1)} to ${hi.toFixed(1)} percent. Full figures in the data table below.`);
 }

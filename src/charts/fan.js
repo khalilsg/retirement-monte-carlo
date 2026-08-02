@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { fmtMoney, isPrivate } from "../format.js";
 import { svgEl, niceMax, tooltip, placeTooltip } from "./svg.js";
+import { renderTable, strideIndices, describeChart } from "./table.js";
 
 let fanState = null;
 
@@ -28,6 +29,23 @@ export function renderFan(r) {
   const dot = svgEl("circle", { r: 3.5, fill: "var(--band-line)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
   const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
   fanState = { svg, W, m, iw, ih, h, xOf, yOf, r, hoverLine, dot, rect }; attachFanHover();
+  describeFan(r);
+}
+
+// The hover readout is the only place the band values exist, and it needs a mouse.
+// The table carries the same series; the label carries the shape of the answer.
+function describeFan(r) {
+  const unit = isPrivate() ? "as a multiple of today's balance" : "in today's dollars";
+  describeChart("fan", `Fan chart of portfolio balance from age ${r.ca} to ${r.ca + r.h}, ${unit}. ` +
+    `By age ${r.ca + r.h} the median path holds ${fmtMoney(r.pcts.p50[r.h])}, ` +
+    `the 10th percentile ${fmtMoney(r.pcts.p10[r.h])}, and the 90th ${fmtMoney(r.pcts.p90[r.h])}. ` +
+    `Full figures in the data table below.`);
+  const idx = strideIndices(r.h + 1, 20);
+  renderTable("fan-table", {
+    caption: `Portfolio balance by age at five percentiles across all simulations, ${unit}.`,
+    cols: ["Age", "10th", "25th", "Median", "75th", "90th"],
+    rows: idx.map(y => [r.ca + y, fmtMoney(r.pcts.p10[y]), fmtMoney(r.pcts.p25[y]), fmtMoney(r.pcts.p50[y]), fmtMoney(r.pcts.p75[y]), fmtMoney(r.pcts.p90[y])]),
+  });
 }
 
 function attachFanHover() {

@@ -71,7 +71,9 @@ function applyChrome() {
   document.body.classList.toggle("private", on);
   const btn = el("priv-toggle");
   btn.setAttribute("aria-pressed", String(on));
-  btn.textContent = on ? "🔒 Private — showing ratios" : "🔒 Private mode";
+  // The padlock is decoration; left bare a screen reader reads "locked, Private
+  // mode" on a control whose state is already carried by aria-pressed.
+  btn.innerHTML = '<span aria-hidden="true">🔒</span> ' + (on ? "Private — showing ratios" : "Private mode");
   el("priv-note").hidden = !on;
   el("priv-unit").textContent = unitLabel();
 

@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { parseNum } from "../format.js";
 import { svgEl, tooltip, placeTooltip } from "./svg.js";
+import { renderTable, strideIndices, describeChart } from "./table.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { simSequence, safeYearFrom } from "../engine/simulate.js";
 
@@ -60,6 +61,27 @@ function drawSeqChart(d, target, safeYear) {
   const dot = svgEl("circle", { r: 4, fill: "var(--brand)", stroke: "var(--surface)", "stroke-width": 1.5, opacity: 0 }); svg.appendChild(dot);
   const rect = svgEl("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" }); svg.appendChild(rect);
   seqChartState = { svg, W, m, iw, ih, A, T, span, ca, xOf, yOf, d, dot, rect }; attachSeqHover();
+  describeSeqChart(d, target, safeYear);
+}
+
+// The "breathe easy" age is the finding here; the curve behind it and the share of
+// paths still on track only exist in the hover tooltip otherwise.
+function describeSeqChart(d, target, safeYear) {
+  const reach = safeYear != null
+    ? `Success first reaches ${target} percent at age ${d.ca + safeYear}.`
+    : `Success never reaches ${target} percent within the plan.`;
+  describeChart("seq-chart", `Line chart of success probability by age, for paths still at or above their retirement balance. ${reach} ` +
+    `Full figures in the data table below.`);
+  const years = [];
+  for (let N = d.A; N <= d.h; N++) if (!isNaN(d.cond[N])) years.push(N);
+  renderTable("seq-table", {
+    caption: "Success probability at each age, given the inflation-adjusted balance is still at or above its level at retirement, alongside how many simulated paths are still on track.",
+    cols: ["Age", "Success if on track", "Paths on track"],
+    rows: strideIndices(years.length, 20).map(k => {
+      const N = years[k];
+      return [d.ca + N, d.cond[N].toFixed(1) + "%", d.onFrac[N].toFixed(0) + "%"];
+    }),
+  });
 }
 
 function attachSeqHover() {

@@ -12,11 +12,18 @@
 <link rel="stylesheet" href="styles/app.css">
 </head>
 <body>
+<a class="skip-link" href="#results">Skip to results</a>
+
+<!-- Recomputed figures are announced here, once the inputs settle. The visible
+     outcome card is deliberately not a live region: it rewrites on every frame of
+     a slider drag, which would flood a screen reader. See ui/announce.js. -->
+<div id="a11y-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+
 <div class="wrap">
   <header class="masthead">
     <div class="masthead-top">
       <div class="eyebrow">Retirement Monte Carlo</div>
-      <button class="btn small priv-toggle" id="priv-toggle" aria-pressed="false">🔒 Private mode</button>
+      <button class="btn small priv-toggle" id="priv-toggle" aria-pressed="false"><span aria-hidden="true">🔒</span> Private mode</button>
     </div>
     <h1>Will the portfolio outlast the plan?</h1>
     <p class="lede">Each simulated year draws real history (1928–2025) — stock, bond, and inflation together — and
@@ -29,7 +36,7 @@
 
   <div class="layout">
     <!-- CONTROLS -->
-    <aside class="card controls">
+    <form class="card controls" id="controls" aria-label="Plan assumptions">
       <div class="scenario">
         <select id="preset" aria-label="Load a preset scenario">
           <option value="">Load a preset…</option>
@@ -39,67 +46,88 @@
           <option value="p_coast">Coast + Social Security</option>
         </select>
         <div class="scenario-row">
-          <button class="btn small" id="save-default">★ Save as my default</button>
-          <button class="btn small" id="copy-link">🔗 Copy link</button>
+          <button type="button" class="btn small" id="save-default"><span aria-hidden="true">★</span> Save as my default</button>
+          <button type="button" class="btn small" id="copy-link"><span aria-hidden="true">🔗</span> Copy link</button>
         </div>
         <details class="scen-more" id="scen-more">
           <summary>Share or load a scenario</summary>
-          <input type="text" id="scen-code" placeholder="Paste a scenario link or code here">
+          <input type="text" id="scen-code" aria-label="Scenario link or code" placeholder="Paste a scenario link or code here" aria-describedby="scen-hint">
           <div class="scenario-row">
-            <button class="btn small" id="load-code">Load</button>
-            <button class="btn small" id="copy-code">Copy code</button>
-            <button class="btn small" id="reset-default">Reset</button>
+            <button type="button" class="btn small" id="load-code">Load</button>
+            <button type="button" class="btn small" id="copy-code">Copy code</button>
+            <button type="button" class="btn small" id="reset-default">Reset</button>
           </div>
-          <p class="hint">To share your numbers, click <b>Copy link</b> — it carries the whole scenario, so opening
+          <p class="hint" id="scen-hint">To share your numbers, click <b>Copy link</b> — it carries the whole scenario, so opening
             it loads these assumptions straight away. <b>Copy code</b> gives you the short code on its own instead;
             paste either one in the box above and click <b>Load</b>. The code is scrambled, so your figures aren't
             legible in the link itself — but treat it as shared, not secret: whoever opens it sees the whole scenario.
             <b>Save as my default</b> remembers your numbers in this browser for next time.</p>
         </details>
-        <div class="toast" id="toast"></div>
+        <div class="toast" id="toast" role="status"></div>
       </div>
 
       <h2 class="card-title">Assumptions</h2>
-      <p class="card-sub">Everything in today's dollars.</p>
+      <p class="card-sub">Everything in today's dollars. Every slider has a box beside it — drag it or type the number.</p>
 
       <div class="field">
-        <label for="cur-age">Current age <span class="val" id="cur-age-v"></span></label>
+        <div class="field-head">
+          <label for="cur-age">Current age</label>
+          <span class="val"><input type="number" class="val-num" id="cur-age-v" data-range="cur-age" min="18" max="90" step="1" value="65" aria-label="Current age, exact value"></span>
+        </div>
         <input type="range" id="cur-age" min="18" max="90" step="1" value="65">
       </div>
       <div class="field">
-        <label for="ret-age">Retirement age <span class="val" id="ret-age-v"></span></label>
-        <input type="range" id="ret-age" min="18" max="95" step="1" value="65">
+        <div class="field-head">
+          <label for="ret-age">Retirement age</label>
+          <span class="val"><input type="number" class="val-num" id="ret-age-v" data-range="ret-age" min="18" max="95" step="1" value="65" aria-label="Retirement age, exact value"></span>
+        </div>
+        <input type="range" id="ret-age" min="18" max="95" step="1" value="65" aria-describedby="ret-age-hint">
         <p class="hint" id="ret-age-hint"></p>
       </div>
       <div class="field">
-        <label for="end-age">Plan through age <span class="val" id="end-age-v"></span></label>
-        <input type="range" id="end-age" min="60" max="110" step="1" value="95">
-        <p class="hint">The age you want your money to last through.</p>
+        <div class="field-head">
+          <label for="end-age">Plan through age</label>
+          <span class="val"><input type="number" class="val-num" id="end-age-v" data-range="end-age" min="60" max="110" step="1" value="95" aria-label="Plan through age, exact value"></span>
+        </div>
+        <input type="range" id="end-age" min="60" max="110" step="1" value="95" aria-describedby="end-age-hint">
+        <p class="hint" id="end-age-hint">The age you want your money to last through.</p>
       </div>
 
       <hr class="divider">
 
       <div class="field">
-        <label for="start">Balance today <span class="val" id="start-v"></span></label>
+        <div class="field-head">
+          <label for="start">Balance today</label>
+          <span class="val" id="start-v"></span>
+        </div>
         <div class="input-money"><input type="text" inputmode="numeric" class="money" id="start" data-priv-kind="stock" value="1,500,000"></div>
       </div>
 
       <div class="field" id="contrib-field" hidden>
-        <label for="contrib">Annual contribution <span class="val" id="contrib-v"></span></label>
-        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="contrib" data-priv-kind="flow" value="0"></div>
-        <p class="hint">Added each year until retirement, in today's dollars.</p>
+        <div class="field-head">
+          <label for="contrib">Annual contribution</label>
+          <span class="val" id="contrib-v"></span>
+        </div>
+        <div class="input-money"><input type="text" inputmode="numeric" class="money" id="contrib" data-priv-kind="flow" value="0" aria-describedby="contrib-hint"></div>
+        <p class="hint" id="contrib-hint">Added each year until retirement, in today's dollars.</p>
       </div>
 
       <div class="field">
-        <label for="spend">Annual spending <span class="val" id="spend-v"></span></label>
+        <div class="field-head">
+          <label for="spend">Annual spending</label>
+          <span class="val" id="spend-v"></span>
+        </div>
         <div class="input-money"><input type="text" inputmode="numeric" class="money" id="spend" data-priv-kind="flow" value="70,000"></div>
       </div>
 
       <div class="field">
-        <label>Income streams <span class="val" id="inc-sum"></span></label>
-        <div id="streams"></div>
-        <button class="btn small" id="add-stream">+ Add income stream</button>
-        <p class="hint">Pensions, Social Security, annuities, part-time work. Enter each stream's <b>after-tax</b> value — the amount you'd actually receive. Blank “To age” = for life. Turn off
+        <div class="field-head">
+          <span class="field-label" id="inc-label">Income streams</span>
+          <span class="val" id="inc-sum"></span>
+        </div>
+        <div id="streams" role="group" aria-labelledby="inc-label"></div>
+        <button type="button" class="btn small" id="add-stream" aria-describedby="streams-hint">+ Add income stream</button>
+        <p class="hint" id="streams-hint">Pensions, Social Security, annuities, part-time work. Enter each stream's <b>after-tax</b> value — the amount you'd actually receive. Blank “To age” = for life. Turn off
           <em>inflation-adjusted</em> for a fixed nominal pension — its real value then erodes with inflation.</p>
       </div>
 
@@ -115,16 +143,31 @@
 
       <div id="fixed-alloc">
         <div class="field">
-          <label for="stock">Stock allocation <span class="val"><span id="stock-v"></span>% / <span id="bond-v"></span>% bonds</span></label>
-          <input type="range" id="stock" min="0" max="100" step="5" value="60">
-          <div class="range-ends"><span>0% stock</span><span>100%</span></div>
+          <div class="field-head">
+            <label for="stock">Stock allocation</label>
+            <span class="val"><input type="number" class="val-num" id="stock-v" data-range="stock" min="0" max="100" step="1" value="60" aria-label="Stock allocation percent, exact value">% / <span id="bond-v"></span>% bonds</span>
+          </div>
+          <input type="range" id="stock" min="0" max="100" step="1" value="60">
+          <div class="range-ends" aria-hidden="true"><span>0% stock</span><span>100%</span></div>
         </div>
       </div>
 
       <div class="subpanel" id="glide-alloc" hidden>
-        <div class="field"><label for="glide-start">Stock at start <span class="val"><span id="glide-start-v"></span>%</span></label><input type="range" id="glide-start" min="0" max="100" step="5" value="60"></div>
-        <div class="field"><label for="glide-end">Stock at end <span class="val"><span id="glide-end-v"></span>%</span></label><input type="range" id="glide-end" min="0" max="100" step="5" value="30"></div>
-        <p class="hint">Equity share moves linearly from start to end across your retirement. Set start <em>below</em> end
+        <div class="field">
+          <div class="field-head">
+            <label for="glide-start">Stock at start</label>
+            <span class="val"><input type="number" class="val-num" id="glide-start-v" data-range="glide-start" min="0" max="100" step="1" value="60" aria-label="Stock at start, percent, exact value">%</span>
+          </div>
+          <input type="range" id="glide-start" min="0" max="100" step="1" value="60" aria-describedby="glide-hint">
+        </div>
+        <div class="field">
+          <div class="field-head">
+            <label for="glide-end">Stock at end</label>
+            <span class="val"><input type="number" class="val-num" id="glide-end-v" data-range="glide-end" min="0" max="100" step="1" value="30" aria-label="Stock at end, percent, exact value">%</span>
+          </div>
+          <input type="range" id="glide-end" min="0" max="100" step="1" value="30" aria-describedby="glide-hint">
+        </div>
+        <p class="hint" id="glide-hint">Equity share moves linearly from start to end across your retirement. Set start <em>below</em> end
           for a rising-equity "bond tent," which cushions early sequence-of-returns risk.</p>
       </div>
 
@@ -143,26 +186,56 @@
 
           <div class="subpanel" id="guardrail-fields" hidden>
             <div class="grid2">
-              <div class="field"><label for="g-band">Guardrail band <span class="val">±<span id="g-band-v"></span>%</span></label><input type="range" id="g-band" min="5" max="40" step="1" value="20"></div>
-              <div class="field"><label for="g-step">Spending step <span class="val">±<span id="g-step-v"></span>%</span></label><input type="range" id="g-step" min="5" max="25" step="1" value="10"></div>
-              <div class="field"><label for="g-floor">Floor <span class="val"><span id="g-floor-v"></span>%</span></label><input type="range" id="g-floor" min="40" max="100" step="1" value="80"></div>
-              <div class="field"><label for="g-ceiling">Ceiling <span class="val"><span id="g-ceiling-v"></span>%</span></label><input type="range" id="g-ceiling" min="100" max="200" step="5" value="120"></div>
+              <div class="field">
+                <div class="field-head">
+                  <label for="g-band">Guardrail band</label>
+                  <span class="val">±<input type="number" class="val-num" id="g-band-v" data-range="g-band" min="5" max="40" step="1" value="20" aria-label="Guardrail band, plus or minus percent, exact value">%</span>
+                </div>
+                <input type="range" id="g-band" min="5" max="40" step="1" value="20" aria-describedby="guardrail-hint">
+              </div>
+              <div class="field">
+                <div class="field-head">
+                  <label for="g-step">Spending step</label>
+                  <span class="val">±<input type="number" class="val-num" id="g-step-v" data-range="g-step" min="5" max="25" step="1" value="10" aria-label="Spending step, plus or minus percent, exact value">%</span>
+                </div>
+                <input type="range" id="g-step" min="5" max="25" step="1" value="10" aria-describedby="guardrail-hint">
+              </div>
+              <div class="field">
+                <div class="field-head">
+                  <label for="g-floor">Floor</label>
+                  <span class="val"><input type="number" class="val-num" id="g-floor-v" data-range="g-floor" min="40" max="100" step="1" value="80" aria-label="Spending floor, percent of base spending, exact value">%</span>
+                </div>
+                <input type="range" id="g-floor" min="40" max="100" step="1" value="80" aria-describedby="guardrail-hint">
+              </div>
+              <div class="field">
+                <div class="field-head">
+                  <label for="g-ceiling">Ceiling</label>
+                  <span class="val"><input type="number" class="val-num" id="g-ceiling-v" data-range="g-ceiling" min="100" max="200" step="1" value="120" aria-label="Spending ceiling, percent of base spending, exact value">%</span>
+                </div>
+                <input type="range" id="g-ceiling" min="100" max="200" step="1" value="120" aria-describedby="guardrail-hint">
+              </div>
             </div>
-            <p class="hint">When your withdrawal rate drifts a full band above plan, spending steps down (never below the
+            <p class="hint" id="guardrail-hint">When your withdrawal rate drifts a full band above plan, spending steps down (never below the
               floor); drift below and it steps up (never above the ceiling). Floor/ceiling are % of base spending.</p>
           </div>
 
           <div class="field">
-            <label for="fee">Annual fees / drag <span class="val"><span id="fee-v"></span>%</span></label>
+            <div class="field-head">
+              <label for="fee">Annual fees / drag</label>
+              <span class="val"><input type="number" class="val-num" id="fee-v" data-range="fee" min="0" max="2" step="0.05" value="0.2" aria-label="Annual fees or drag, percent, exact value">%</span>
+            </div>
             <input type="range" id="fee" min="0" max="2" step="0.05" value="0.2">
-            <div class="range-ends"><span>0%</span><span>2%</span></div>
+            <div class="range-ends" aria-hidden="true"><span>0%</span><span>2%</span></div>
           </div>
 
           <div class="field">
-            <label for="tax">Effective tax on withdrawals <span class="val"><span id="tax-v"></span>%</span></label>
-            <input type="range" id="tax" min="0" max="40" step="1" value="0">
-            <div class="range-ends"><span>0%</span><span>40%</span></div>
-            <p class="hint">Portfolio withdrawals get grossed up to cover this rate, so you pull extra to pay tax.
+            <div class="field-head">
+              <label for="tax">Effective tax on withdrawals</label>
+              <span class="val"><input type="number" class="val-num" id="tax-v" data-range="tax" min="0" max="40" step="1" value="0" aria-label="Effective tax on withdrawals, percent, exact value">%</span>
+            </div>
+            <input type="range" id="tax" min="0" max="40" step="1" value="0" aria-describedby="tax-hint">
+            <div class="range-ends" aria-hidden="true"><span>0%</span><span>40%</span></div>
+            <p class="hint" id="tax-hint">Portfolio withdrawals get grossed up to cover this rate, so you pull extra to pay tax.
               Your income streams are treated as after-tax already, so they aren't taxed again. Set from your own
               estimated <em>effective</em> rate (total tax ÷ withdrawals) — 0% if it's all Roth/tax-free.</p>
           </div>
@@ -176,9 +249,12 @@
           </div>
 
           <div class="field" id="block-field" hidden>
-            <label for="block-len">Block length <span class="val"><span id="block-len-v"></span> yrs</span></label>
+            <div class="field-head">
+              <label for="block-len">Block length</label>
+              <span class="val"><input type="number" class="val-num" id="block-len-v" data-range="block-len" min="2" max="15" step="1" value="5" aria-label="Block length in years, exact value"> yrs</span>
+            </div>
             <input type="range" id="block-len" min="2" max="15" step="1" value="5">
-            <div class="range-ends"><span>2</span><span>15</span></div>
+            <div class="range-ends" aria-hidden="true"><span>2</span><span>15</span></div>
           </div>
         </div>
       </details>
@@ -195,34 +271,36 @@
         </select>
       </div>
 
-      <button class="btn" id="reshuffle">↻ Reshuffle sampling</button>
-      <p class="hint">Runs reuse one fixed set of sampled histories (common random numbers), so changing an
+      <button type="button" class="btn" id="reshuffle" aria-describedby="reshuffle-hint"><span aria-hidden="true">↻</span> Reshuffle sampling</button>
+      <p class="hint" id="reshuffle-hint">Runs reuse one fixed set of sampled histories (common random numbers), so changing an
         assumption reflects <em>that</em> assumption — not simulation noise. Reshuffle to draw a new set.</p>
-    </aside>
+    </form>
 
     <!-- RESULTS -->
-    <div class="results">
-      <section class="card outcome">
+    <main class="results" id="results" tabindex="-1">
+      <section class="card outcome" aria-labelledby="outcome-h">
         <div class="outcome-head">
           <div>
-            <div class="eyebrow">Probability of success</div>
+            <h2 class="eyebrow" id="outcome-h">Probability of success</h2>
             <div class="big-prob" id="prob">—</div>
             <div class="verdict" id="verdict"></div>
-            <div class="prob-ci" id="prob-ci" title="95% confidence interval from Monte Carlo sampling — narrower with more simulations"></div>
+            <div class="prob-ci" id="prob-ci" aria-describedby="ci-note" title="95% confidence interval from Monte Carlo sampling — narrower with more simulations"></div>
+            <p id="ci-note" class="sr-only">This is the 95% confidence interval from Monte Carlo sampling error. It narrows as you raise the number of simulations.</p>
           </div>
           <div class="prob-label">
             <div class="k">Money lasts the full<br><span id="hz-label"></span>-year retirement</div>
             <div class="sub" id="run-note"></div>
           </div>
         </div>
-        <div class="meter"><div class="mk" id="meter-mk"></div></div>
-        <div class="meter-scale"><span>0%</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
+        <!-- A marker on a gradient, restating the number printed above it. -->
+        <div class="meter" aria-hidden="true"><div class="mk" id="meter-mk"></div></div>
+        <div class="meter-scale" aria-hidden="true"><span>0%</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
         <div class="stats" id="stats"></div>
       </section>
 
-      <section class="card chart-card">
+      <section class="card chart-card" aria-labelledby="fan-h">
         <div class="chart-head">
-          <div><h2 class="card-title">Balance over time</h2><p class="card-sub">Percentile bands across all simulations, in today's dollars.</p></div>
+          <div><h2 class="card-title" id="fan-h">Balance over time</h2><p class="card-sub">Percentile bands across all simulations, in today's dollars.</p></div>
           <div class="legend">
             <span class="li"><span class="swatch" style="background:var(--band-outer)"></span>10th–90th</span>
             <span class="li"><span class="swatch" style="background:var(--band-mid)"></span>25th–75th</span>
@@ -230,17 +308,18 @@
           </div>
         </div>
         <svg id="fan" viewBox="0 0 760 380" role="img" aria-label="Fan chart of portfolio balance percentiles over time"></svg>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="fan-table"></table></div></details>
       </section>
 
-      <section class="card chart-card">
-        <div class="chart-head"><div><h2 class="card-title">Sequence-of-returns risk</h2><p class="card-sub">How much of the failure risk is the <em>order</em> of returns — and when you're past the danger.</p></div></div>
+      <section class="card chart-card" aria-labelledby="seq-h">
+        <div class="chart-head"><div><h2 class="card-title" id="seq-h">Sequence-of-returns risk</h2><p class="card-sub">How much of the failure risk is the <em>order</em> of returns — and when you're past the danger.</p></div></div>
         <div class="seq-attr">
           <div class="seq-share">
             <div class="seq-share-num" id="seq-share">—</div>
             <div class="seq-share-lab">of failures are caused by the <b>order</b> of returns</div>
           </div>
           <div>
-            <div class="seqbar" id="seq-bar"></div>
+            <div class="seqbar" id="seq-bar" aria-hidden="true"></div>
             <div class="seq-legend" id="seq-legend"></div>
           </div>
         </div>
@@ -269,10 +348,11 @@
         <svg id="seq-chart" viewBox="0 0 760 300" role="img" aria-label="Conditional success probability by year survived on track"></svg>
         <p class="hint" id="seq-summary"></p>
         <p class="hint" id="seq-note"></p>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="seq-table"></table></div></details>
       </section>
 
-      <section class="card chart-card">
-        <div class="chart-head"><div><h2 class="card-title">Sensitivity sweep</h2><p class="card-sub">Vary one assumption across a range; hold the rest constant.</p></div></div>
+      <section class="card chart-card" aria-labelledby="sweep-h">
+        <div class="chart-head"><div><h2 class="card-title" id="sweep-h">Sensitivity sweep</h2><p class="card-sub">Vary one assumption across a range; hold the rest constant.</p></div></div>
         <div class="sweep-controls">
           <div class="field"><label for="sweep-var">Parameter</label><select id="sweep-var"></select></div>
           <div class="field"><label for="sweep-from">From</label><input type="text" inputmode="numeric" id="sweep-from"></div>
@@ -280,11 +360,11 @@
           <div class="field"><label for="sweep-steps">Steps</label><input type="text" inputmode="numeric" id="sweep-steps" value="41"></div>
         </div>
         <svg id="sweep" viewBox="0 0 760 340" role="img" aria-label="Sensitivity of success probability to the selected parameter"></svg>
-        <details class="method"><summary>Show data table</summary><div class="scroll-x"><table class="datatable" id="sweep-table"></table></div></details>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="sweep-table"></table></div></details>
       </section>
 
-      <section class="card chart-card">
-        <div class="chart-head"><div><h2 class="card-title">What moves the needle most</h2><p class="card-sub">Each bar shows how far success swings if that one assumption is off by a plausible amount, everything else held fixed. Longest bar = your biggest lever.</p></div></div>
+      <section class="card chart-card" aria-labelledby="tor-h">
+        <div class="chart-head"><div><h2 class="card-title" id="tor-h">What moves the needle most</h2><p class="card-sub">Each bar shows how far success swings if that one assumption is off by a plausible amount, everything else held fixed. Longest bar = your biggest lever.</p></div></div>
         <svg id="tornado" viewBox="0 0 760 300" role="img" aria-label="Tornado chart ranking assumptions by their impact on success probability"></svg>
         <details class="method">
           <summary>How to read this</summary>
@@ -296,10 +376,11 @@
             what your plan is most sensitive to. Rankings depend on those assumed ± ranges — treat it as a guide to
             <em>relative</em> leverage, not exact magnitudes.</p>
         </details>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="tornado-table"></table></div></details>
       </section>
 
-      <section class="card chart-card">
-        <div class="chart-head"><div><h2 class="card-title">Success surface</h2><p class="card-sub">Two assumptions at once. Each cell is the success probability; the amber line is your target frontier.</p></div><button class="btn small heat-swap" id="heat-swap" title="Swap the X and Y axes (transpose the grid)">⇄ Swap axes</button></div>
+      <section class="card chart-card" aria-labelledby="heat-h">
+        <div class="chart-head"><div><h2 class="card-title" id="heat-h">Success surface</h2><p class="card-sub">Two assumptions at once. Each cell is the success probability; the amber line is your target frontier.</p></div><button type="button" class="btn small heat-swap" id="heat-swap" title="Swap the X and Y axes (transpose the grid)"><span aria-hidden="true">⇄</span> Swap axes</button></div>
         <div class="heat-controls">
           <div class="field"><label for="hx-var">X axis</label><select id="hx-var"></select></div>
           <div class="field"><label for="hx-from">X from</label><input type="text" inputmode="numeric" id="hx-from"></div>
@@ -312,6 +393,7 @@
         </div>
         <div class="field" style="max-width:210px;margin-bottom:12px"><label for="h-target">Target success (frontier)</label><input type="text" inputmode="numeric" id="h-target" value="85"></div>
         <svg id="heat" viewBox="0 0 760 470" role="img" aria-label="Heatmap of success probability across two chosen parameters"></svg>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="heat-table"></table></div></details>
       </section>
 
       <details class="method">
@@ -346,11 +428,11 @@
         <p><b>Caveats.</b> U.S. history is one sample of possible futures, and this is an educational model — not
           personalized financial advice. Data: NYU Stern (Damodaran) for stock/bond returns; BLS CPI for inflation.</p>
       </details>
-    </div>
+    </main>
   </div>
 </div>
 
-<div class="tooltip" id="tt"></div>
+<div class="tooltip" id="tt" aria-hidden="true"></div>
 <script type="module" src="src/main.js"></script>
 </body>
 </html>

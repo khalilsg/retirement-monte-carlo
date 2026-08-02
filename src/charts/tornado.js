@@ -3,6 +3,7 @@
 import { el } from "../dom.js";
 import { escapeHtml } from "../format.js";
 import { svgEl, tooltip, placeTooltip } from "./svg.js";
+import { renderTable, describeChart } from "./table.js";
 import { SWEEP_META, streamMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { simSuccess } from "../engine/simulate.js";
@@ -35,7 +36,13 @@ export function renderTornado() {
   const W = 760, m = { t: 26, r: 20, b: 30, l: 150 }, rowH = 30, iw = W - m.l - m.r;
   const H = m.t + rows.length * rowH + m.b;
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
-  if (!rows.length) { const t = svgEl("text", { x: W / 2, y: 40, "text-anchor": "middle", class: "axis-title" }); t.textContent = "No adjustable assumptions to rank."; svg.appendChild(t); return; }
+  if (!rows.length) {
+    const t = svgEl("text", { x: W / 2, y: 40, "text-anchor": "middle", class: "axis-title" }); t.textContent = "No adjustable assumptions to rank."; svg.appendChild(t);
+    describeChart("tornado", "No adjustable assumptions to rank.");
+    renderTable("tornado-table", { caption: "No adjustable assumptions to rank.", cols: ["Assumption"], rows: [] });
+    return;
+  }
+  describeTornado(base, rows);
   const xOf = v => m.l + v / 100 * iw, plotBottom = m.t + rows.length * rowH;
   const ax = svgEl("g", { class: "axis" }); svg.appendChild(ax);
   for (let v = 0; v <= 100; v += 25) { const x = xOf(v); ax.appendChild(svgEl("line", { x1: x, y1: m.t, x2: x, y2: plotBottom, stroke: "var(--hairline)", "stroke-width": 1 })); const t = svgEl("text", { x, y: plotBottom + 16, "text-anchor": "middle" }); t.textContent = v + "%"; ax.appendChild(t); }
@@ -55,6 +62,27 @@ export function renderTornado() {
   });
   const rect = svgEl("rect", { x: 0, y: m.t, width: W, height: rows.length * rowH, fill: "transparent" }); svg.appendChild(rect);
   tornadoState = { svg, W, H, m, rowH, rows, base, xOf, rect }; attachTornadoHover();
+}
+
+// The ranking is the whole point of the chart, and bar length is the only thing
+// encoding it — so the label leads with the top lever and the table gives the rest
+// in order.
+function describeTornado(base, rows) {
+  const top = rows[0];
+  describeChart("tornado", `Tornado chart ranking ${rows.length} assumptions by their effect on success probability, ` +
+    `which is ${base.toFixed(1)} percent at your current plan. ` +
+    `The biggest lever is ${top.label.toLowerCase()}, swinging success by ${top.impact.toFixed(1)} points. ` +
+    `Full ranking in the data table below.`);
+  renderTable("tornado-table", {
+    caption: `Assumptions ranked by how far success swings over a plausible range, everything else held at your current plan (${base.toFixed(1)}% success).`,
+    cols: ["Assumption", "Worse value", "Success", "Better value", "Success", "Swing"],
+    rows: rows.map(r => {
+      const worse = r.sLo <= r.sHi ? { in: r.lo, s: r.sLo } : { in: r.hi, s: r.sHi };
+      const better = r.sLo <= r.sHi ? { in: r.hi, s: r.sHi } : { in: r.lo, s: r.sLo };
+      return [r.label, sweepFmt(r.meta, worse.in, true), worse.s.toFixed(1) + "%",
+        sweepFmt(r.meta, better.in, true), better.s.toFixed(1) + "%", r.impact.toFixed(1) + " pts"];
+    }),
+  });
 }
 
 function attachTornadoHover() {

@@ -4,9 +4,10 @@ import { el } from "../dom.js";
 import { commafy, parseNum, isPrivate } from "../format.js";
 import {
   syncLabels, readParams, currentSims, toggleModePanels, renderStreams, getStreams,
-  buildSweepOptions, fillSweepRange, buildHeatOptions, fillHeatRange,
+  buildSweepOptions, fillSweepRange, buildHeatOptions, fillHeatRange, initValueInputs,
 } from "./controls.js";
 import { renderOutcome } from "./outcome.js";
+import { flushSummary } from "./announce.js";
 import { renderFan } from "../charts/fan.js";
 import { renderSequence, drawSequence } from "../charts/sequence.js";
 import { renderTornado } from "../charts/tornado.js";
@@ -29,8 +30,11 @@ function recomputeLight() {
 }
 
 // Heavy path: the sequence card, sensitivity sweep, tornado, and heatmap —
-// dozens/hundreds of extra simulation runs.
-function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); renderHeat(); }
+// dozens/hundreds of extra simulation runs. This is also the settle point, so it's
+// where the screen-reader summary is released: it runs once the inputs stop moving,
+// never on the per-frame path, which keeps the live region from being flooded
+// mid-drag with figures that are obsolete before they finish being spoken.
+function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); renderHeat(); flushSummary(); }
 
 export function recompute() { recomputeLight(); recomputeHeavy(); }
 
@@ -97,14 +101,21 @@ function attachEvents() {
   el("add-stream").addEventListener("click", () => {
     const streams = getStreams();
     streams.push({ label: streams.length === 0 ? "Pension" : "Income " + (streams.length + 1), amount: 0, from: el("ret-age").value, to: "", cola: false });
-    renderStreams(); buildSweepOptions(); buildHeatOptions(); recompute();
+    // Focus the new stream's name field: it's the first thing you'd fill in, and
+    // without this the rebuild drops focus to <body>.
+    renderStreams({ sel: ".s-label", i: streams.length - 1 });
+    buildSweepOptions(); buildHeatOptions(); recompute();
   });
+  // The controls are a <form> so they expose a form landmark, which means Enter in
+  // a text field would otherwise try to submit and reload the page, losing the plan.
+  el("controls").addEventListener("submit", ev => ev.preventDefault());
 }
 
 // Boot: attach listeners, wire scenario controls, seed the dropdowns, and load the
 // initial scenario (shared hash > saved default > built-in).
 export function init() {
   attachEvents();
+  initValueInputs(scheduleLive);
   initScenarios();
   // Toggling privacy changes how every figure renders, including the income-stream
   // option labels, so the dropdowns are rebuilt alongside the recompute.
