@@ -39,7 +39,25 @@ src/
                       sequence) + shared svg.js helpers
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
                       privacy.js — private-mode toggle, input masking, leak guards
+  version.js          the version string shown in the footer
 ```
+
+### Versioning
+[`src/version.js`](src/version.js) holds the version shown in the footer, and is bumped on every push that changes the app:
+
+- Same-day follow-up pushes → increment the third number (1.0 → 1.0.1)
+- First push of the day, minor change → increment the second number (1.0 → 1.1)
+- New features / major changes → increment the first number (1.x → 2.0)
+
+Docs-only and CI-only changes don't bump the version.
+
+A `pre-push` hook in [`.githooks/`](.githooks/pre-push) blocks a push that leaves `src/version.js` untouched. Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Use `git push --no-verify` for a genuine non-shipping push.
 
 ### Sharing a scenario
 `Copy link` produces `…/?s=<code>`, which loads those assumptions on open (`#s=<code>` works too, as does pasting either form into the load box).

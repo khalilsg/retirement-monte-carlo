@@ -17,6 +17,7 @@ import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { loadInitial, initScenarios } from "./scenarios.js";
 import { initPrivacy, swapInputs } from "./privacy.js";
+import { initFooter } from "./footer.js";
 
 // Light path: the headline success number + balance fan. Cheap enough to run live
 // while dragging a slider.
@@ -114,6 +115,7 @@ function attachEvents() {
 // Boot: attach listeners, wire scenario controls, seed the dropdowns, and load the
 // initial scenario (shared hash > saved default > built-in).
 export function init() {
+  initFooter();
   attachEvents();
   initValueInputs(scheduleLive);
   initScenarios();
