@@ -61,13 +61,34 @@ let toastT = null;
 function toast(msg) { const t = el("toast"); t.textContent = msg; t.classList.add("show"); if (toastT) clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2800); }
 async function copyText(txt, okMsg) { try { await navigator.clipboard.writeText(txt); toast(okMsg); } catch (e) { el("scen-code").value = txt; el("scen-more").open = true; toast("Copy it from the box below."); } }
 
-// Read a shared scenario out of the URL — "?s=CODE" or "#s=CODE" — looking through
-// to the parent when the tool is embedded in a framed context.
+// This page's query and hash, then the framing page's — when the tool is embedded,
+// the link's parameters land on the outer URL rather than on this document's.
+function urlParts() {
+  const tryOne = fn => { try { return fn(); } catch (e) { return ""; } };
+  return [
+    tryOne(() => location.search + location.hash),
+    tryOne(() => window.parent.location.search + window.parent.location.hash),
+    tryOne(() => window.top.location.search + window.top.location.hash),
+  ];
+}
+
+// Read a shared scenario out of the URL — "?s=CODE" or "#s=CODE".
 function urlCode() {
-  const tryOne = fn => { try { const m = S_PARAM.exec(fn()); return m ? m[1] : ""; } catch (e) { return ""; } };
-  return tryOne(() => location.search + location.hash)
-    || tryOne(() => window.parent.location.search + window.parent.location.hash)
-    || tryOne(() => window.top.location.search + window.top.location.hash);
+  for (const part of urlParts()) { const m = S_PARAM.exec(part); if (m) return m[1]; }
+  return "";
+}
+
+// "?demo" (or "#demo", or "?demo=1") opens the built-in defaults and leaves the
+// saved default in storage untouched — a link to hand out for a walkthrough, while
+// the bare URL still opens your own numbers. "?demo=0" is the same as leaving it off.
+const DEMO_PARAM = /(?:^|[?&#])demo(?:=([^&#\s]*))?(?=[&#]|$)/;
+export function isDemo() {
+  for (const part of urlParts()) { const m = DEMO_PARAM.exec(part); if (m) return !/^(0|false|no|off)$/i.test(m[1] || ""); }
+  return false;
+}
+
+function savedDefault() {
+  try { const ls = localStorage.getItem("mc_default"); return ls ? JSON.parse(ls) : null; } catch (e) { return null; }
 }
 
 // Load from a shared link, then a saved default, else compute the built-in defaults.
@@ -77,7 +98,13 @@ export function loadInitial() {
   // Say so either way: silently showing defaults would look like the sender's
   // numbers, and links do get truncated on their way through chat windows.
   if (code) { o = decodeScenario(code); toast(o ? "Loaded a shared scenario." : "That shared link looks incomplete."); }
-  if (!o) { try { const ls = localStorage.getItem("mc_default"); if (ls) o = JSON.parse(ls); } catch (e) {} }
+  if (!o && isDemo()) {
+    // Only worth a word if there was something to skip. Whoever you sent the demo
+    // link to has no saved default of their own and would just be puzzled by it.
+    if (savedDefault()) toast("Demo view — your saved default isn't loaded.");
+  } else if (!o) {
+    o = savedDefault();
+  }
   if (o) applyScenario(o); else recompute();
 }
 

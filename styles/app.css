@@ -206,7 +206,7 @@
   details.method { margin-top: 22px; font-size: 13px; color: var(--muted); }
   details.method summary { cursor: pointer; font-weight: 600; color: var(--ink); font-size: 13px; }
   details.method p { margin: 10px 0; max-width: 74ch; }
-  details.method code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  details.method code, .hint code { font-family: var(--font-mono); background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 
   table.datatable { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 12px; margin-top: 12px; font-variant-numeric: tabular-nums; }
   table.datatable caption { text-align: left; color: var(--muted); font-family: var(--font-sans); font-size: 12px; padding-bottom: 8px; }
