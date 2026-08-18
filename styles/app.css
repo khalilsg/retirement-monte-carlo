@@ -148,8 +148,12 @@
   .s-del:hover { color: var(--danger); border-color: var(--danger); }
   .stream .input-money { margin-bottom: 8px; }
   .stream-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 9px; }
+  .s-basis-field { margin-bottom: 8px; }
   .mini { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; color: var(--muted); font-weight: 500; margin: 0; }
-  .mini input { padding: 6px 8px; font-size: 13px; }
+  .mini input, .mini select { padding: 6px 8px; font-size: 13px; }
+  /* The ages a retirement-relative stream currently resolves to. */
+  .stream-note { font-size: 10.5px; color: var(--faint); margin: -3px 0 9px; line-height: 1.4; }
+  .stream-note[hidden] { display: none; }
   .cola { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); cursor: pointer; margin: 0; font-weight: 500; }
   .cola input { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
 
@@ -289,7 +293,7 @@
     /* The later three selectors out-specify the bare element one, so they have to
        be named explicitly or they keep their 12–13px and keep triggering the zoom. */
     input[type="text"], input[type="number"], select, .val-num,
-    #scen-code, .stream-top .s-label, .mini input { font-size: 16px; }
+    #scen-code, .stream-top .s-label, .mini input, .mini select { font-size: 16px; }
 
     /* Thumb-sized targets. Everything below was 17–34px tall. */
     input[type="text"], input[type="number"]:not(.val-num), select, .btn, .btn.small { min-height: 44px; }

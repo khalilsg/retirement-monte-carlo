@@ -101,7 +101,7 @@ function attachEvents() {
   el("seq-target").addEventListener("input", () => { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(drawSequence); });
   el("add-stream").addEventListener("click", () => {
     const streams = getStreams();
-    streams.push({ label: streams.length === 0 ? "Pension" : "Income " + (streams.length + 1), amount: 0, from: el("ret-age").value, to: "", cola: false });
+    streams.push({ label: streams.length === 0 ? "Pension" : "Income " + (streams.length + 1), amount: 0, from: el("ret-age").value, to: "", cola: false, basis: "age" });
     // Focus the new stream's name field: it's the first thing you'd fill in, and
     // without this the rebuild drops focus to <body>.
     renderStreams({ sel: ".s-label", i: streams.length - 1 });

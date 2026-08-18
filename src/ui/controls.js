@@ -6,9 +6,10 @@ import { parseNum, commafy, escapeHtml, fmtMoney, inputVal, isPrivate, setPrivac
 import { PARAM_FIELDS, LABEL_FIELDS, SWEEP_META, getMeta } from "../config/parameters.js";
 import { debounced, scheduleTyping, recompute } from "./orchestrate.js";
 import { setMoneyInput, refreshMasks, syncPrivacyNote } from "./privacy.js";
+import { phaseOf } from "../engine/model.js";
 
 // ---------- Income-stream state ----------
-let streams = [{ label: "Pension", amount: 0, from: "65", to: "", cola: false }];
+let streams = [{ label: "Pension", amount: 0, from: "65", to: "", cola: false, basis: "age" }];
 export function getStreams() { return streams; }
 export function setStreams(next) { streams = next; }
 
@@ -31,6 +32,7 @@ export function renderStreams(focus) {
   const host = el("streams");
   host.innerHTML = streams.map((s, i) => {
     const name = escapeHtml(streamName(s, i));
+    const rel = s.basis === "ret";
     return `
     <div class="stream" role="group" aria-label="${name}">
       <div class="stream-top">
@@ -38,10 +40,17 @@ export function renderStreams(focus) {
         <button type="button" class="s-del" data-i="${i}" title="Remove" aria-label="Remove ${name}"><span aria-hidden="true">&times;</span></button>
       </div>
       <div class="input-money"><input type="text" inputmode="numeric" class="money s-amount" data-priv-kind="flow" data-i="${i}" value="${commafy(s.amount)}" aria-label="${name}: annual amount"></div>
+      <label class="mini s-basis-field" for="s-basis-${i}">When it runs
+        <select class="s-basis" id="s-basis-${i}" data-i="${i}" aria-label="${name}: when it runs">
+          <option value="age"${rel ? "" : " selected"}>At fixed ages</option>
+          <option value="ret"${rel ? " selected" : ""}>Relative to retirement</option>
+        </select>
+      </label>
       <div class="stream-grid">
-        <label class="mini" for="s-from-${i}">From age<input type="text" inputmode="numeric" class="s-from" id="s-from-${i}" data-i="${i}" value="${escapeHtml(s.from)}"></label>
-        <label class="mini" for="s-to-${i}">To age<input type="text" inputmode="numeric" class="s-to" id="s-to-${i}" data-i="${i}" value="${escapeHtml(s.to)}" placeholder="life"></label>
+        <label class="mini" for="s-from-${i}">${rel ? "From (ret &plusmn;yrs)" : "From age"}<input type="text" inputmode="${rel ? "text" : "numeric"}" class="s-from" id="s-from-${i}" data-i="${i}" value="${escapeHtml(s.from)}" placeholder="${rel ? "0" : ""}"></label>
+        <label class="mini" for="s-to-${i}">${rel ? "To (ret &plusmn;yrs)" : "To age"}<input type="text" inputmode="${rel ? "text" : "numeric"}" class="s-to" id="s-to-${i}" data-i="${i}" value="${escapeHtml(s.to)}" placeholder="life"></label>
       </div>
+      <p class="stream-note" data-i="${i}"${rel ? "" : " hidden"}></p>
       <label class="cola"><input type="checkbox" class="s-cola" data-i="${i}" ${s.cola ? "checked" : ""}> Inflation-adjusted</label>
     </div>`;
   }).join("");
@@ -54,6 +63,7 @@ export function renderStreams(focus) {
       group.setAttribute("aria-label", name);
       group.querySelector(".s-amount").setAttribute("aria-label", name + ": annual amount");
       group.querySelector(".s-del").setAttribute("aria-label", "Remove " + name);
+      group.querySelector(".s-basis").setAttribute("aria-label", name + ": when it runs");
       buildSweepOptions();
     });
   });
@@ -63,6 +73,18 @@ export function renderStreams(focus) {
   });
   host.querySelectorAll(".s-from").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].from = ev.target.value; scheduleTyping(); }));
   host.querySelectorAll(".s-to").forEach(e => e.addEventListener("input", ev => { streams[+ev.target.dataset.i].to = ev.target.value; scheduleTyping(); }));
+  // Switching basis rewrites the From/To labels, so the list is rebuilt — and the
+  // old numbers are dropped, because "65" means an age on one basis and 65 years
+  // after retiring on the other. Retirement-relative streams start at 0 (the year
+  // you retire); fixed-age ones fall back to the current retirement age.
+  host.querySelectorAll(".s-basis").forEach(e => e.addEventListener("change", ev => {
+    const i = +ev.target.dataset.i, rel = ev.target.value === "ret";
+    streams[i].basis = rel ? "ret" : "age";
+    streams[i].from = rel ? "0" : el("ret-age").value;
+    streams[i].to = "";
+    renderStreams({ sel: ".s-basis", i });
+    recompute();
+  }));
   host.querySelectorAll(".s-cola").forEach(e => e.addEventListener("change", ev => { streams[+ev.target.dataset.i].cola = ev.target.checked; debounced(); }));
   host.querySelectorAll(".s-del").forEach(e => e.addEventListener("click", ev => {
     const i = +ev.currentTarget.dataset.i;
@@ -81,13 +103,21 @@ export function renderStreams(focus) {
 }
 
 // Normalize the raw stream inputs into the numeric shape the engine expects.
+// On the "ret" basis from/to are offsets in years from retirement, so negatives are
+// meaningful ("two years before I retire") and the floor at zero doesn't apply —
+// streamArrays clamps the resolved year instead.
 export function normStreams() {
-  return streams.map(s => ({
-    label: s.label, amount: +s.amount || 0,
-    from: Math.max(0, Math.round(parseNum(s.from)) || 0),
-    to: (s.to == null || String(s.to).trim() === "") ? null : Math.max(0, Math.round(parseNum(s.to))),
-    cola: !!s.cola,
-  }));
+  return streams.map(s => {
+    const rel = s.basis === "ret";
+    const blank = v => v == null || String(v).trim() === "";
+    const yr = v => Math.round(parseNum(v)) || 0;
+    return {
+      label: s.label, amount: +s.amount || 0, basis: rel ? "ret" : "age",
+      from: rel ? yr(s.from) : Math.max(0, yr(s.from)),
+      to: blank(s.to) ? null : (rel ? yr(s.to) : Math.max(0, yr(s.to))),
+      cola: !!s.cola,
+    };
+  });
 }
 
 // ---------- Reading params from the DOM ----------
@@ -141,7 +171,26 @@ export function syncLabels() {
   el("ret-age-hint").textContent = A > 0 ? `${A} yrs saving, then ${R} yrs retired` : `Already retired — ${R} yrs to fund`;
   const tot = streams.reduce((a, s) => a + (+s.amount || 0), 0);
   el("inc-sum").textContent = tot > 0 ? fmtMoney(tot, true) + "/yr" : "";
+  syncStreamNotes(p);
   refreshMasks();
+}
+
+// Retirement-relative streams read as offsets ("ret +2"), which says nothing about
+// when the money actually arrives. Each one carries a note with the ages it resolves
+// to right now, so the offsets stay checkable as the retirement age moves. The
+// anchor is phaseOf's A — the same year the simulation switches to retired — so the
+// note can't drift from what the engine did.
+function syncStreamNotes(p) {
+  const ra = p.curAge + phaseOf(p).A;
+  for (const note of el("streams").querySelectorAll(".stream-note")) {
+    const s = p.streams[+note.dataset.i];
+    if (!s || s.basis !== "ret") { note.hidden = true; continue; }
+    // The engine can't pay a stream before today, so the note shows the clamp too.
+    const f = Math.max(p.curAge, ra + s.from), t = s.to == null ? null : ra + s.to;
+    note.hidden = false;
+    note.textContent = "Retiring at " + ra + ": " +
+      (t == null ? "age " + f + " onward" : t < f ? "never — “to” lands before “from”" : "ages " + f + "–" + t);
+  }
 }
 
 // ---------- Typed entry for every slider ----------

@@ -55,6 +55,7 @@
           <option value="p_lean">Lean — $900k, $40k</option>
           <option value="p_fat">Comfortable — $3M, $140k</option>
           <option value="p_coast">Coast + Social Security</option>
+          <option value="p_bridge">Retire early + bridge job</option>
         </select>
         <div class="scenario-row">
           <button type="button" class="btn small" id="save-default"><span aria-hidden="true">★</span> Save as my default</button>
@@ -141,7 +142,12 @@
         <div id="streams" role="group" aria-labelledby="inc-label"></div>
         <button type="button" class="btn small" id="add-stream" aria-describedby="streams-hint">+ Add income stream</button>
         <p class="hint" id="streams-hint">Pensions, Social Security, annuities, part-time work. Enter each stream's <b>after-tax</b> value — the amount you'd actually receive. Blank “To age” = for life. Turn off
-          <em>inflation-adjusted</em> for a fixed nominal pension — its real value then erodes with inflation.</p>
+          <em>inflation-adjusted</em> for a fixed nominal pension — its real value then erodes with inflation.
+          <b>When it runs</b> pins a stream either to fixed ages (Social Security at 67, whatever else changes) or
+          <em>relative to retirement</em>, where the dates are years either side of the day you stop working — <code>0</code>
+          is the year you retire, <code>-2</code> two years before it. A relative stream follows the retirement-age
+          slider, so a sweep or heatmap over retirement age moves the stream along with it: “retire at <b>X</b> and take
+          a bridge job paying <b>Y</b>” is then one surface rather than one chart per retirement age.</p>
       </div>
 
       <hr class="divider">
@@ -424,6 +430,13 @@
           <em>Inflation-adjusted</em> streams (e.g. Social Security) hold constant real value. A non-adjusted stream
           (a typical fixed pension) is level in nominal terms, so its real value is divided by the inflation
           accumulated since it began — it quietly buys less each year.</p>
+        <p><b>Stream timing.</b> A stream's window is read on one of two bases. <em>At fixed ages</em> is an age you
+          name, and the stream stays there whatever else you change. <em>Relative to retirement</em> counts years from
+          the year you retire (<code>0</code> = that year, <code>3</code> = three years later, <code>-2</code> = two
+          years before), so the stream is re-anchored every time the retirement age moves — including at each point of
+          a sweep or heatmap. That is what lets one heatmap answer “retire at <b>X</b>, earn <b>Y</b> from the next
+          job”: the job's start slides along the X axis instead of sitting at a single age. Either way a window that
+          resolves to before today is clipped to today, and one whose end lands before its start simply never pays.</p>
         <p><b>Spending strategy.</b> <em>Fixed</em> spends a constant real amount. <em>Guardrails</em>
           (Guyton–Klinger-style) reassess each year: if your withdrawal rate — base spending ÷ balance — rises a full
           band above the plan's initial rate you cut spending by the step (down to the floor); if it falls a band

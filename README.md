@@ -9,7 +9,7 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Historical bootstrap** with independent-year or block sampling (preserves clustered downturns)
 - **Spending strategies** — fixed real, or Guyton-Klinger-style guardrails
 - **Allocation** — fixed mix or a lifecycle glide path
-- **Income streams** — pensions / Social Security, age-based, COLA or nominal
+- **Income streams** — pensions / Social Security, COLA or nominal, dated either at fixed ages or *relative to retirement*, so a bridge job pinned to "the year I stop working" slides with the retirement-age slider (and with every point of a sweep or heatmap over it)
 - **Taxes** — effective-rate gross-up on withdrawals
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
 - **Scenarios** — presets, save-as-default, shareable links (`?s=…`) that open straight into someone else's numbers, and a `?demo` view that opens the built-in example instead of your saved default
@@ -28,7 +28,7 @@ src/
   data/history.js     1928–2025 return/inflation series + real-return precompute
   engine/             pure, DOM-free simulation core
     rng.js            seeded RNG + common-random-numbers sampling matrix
-    model.js          timeline phases, allocation glide, income-stream flattening
+    model.js          timeline phases, allocation glide, income-stream flattening (both age bases)
     simulate.js       simSuccess / simFull / simSequence
   config/
     parameters.js     the parameter registry — single source of truth for every

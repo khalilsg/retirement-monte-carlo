@@ -17,7 +17,7 @@ import { clearMasks, refreshMasks } from "./privacy.js";
 export function readScenario() {
   const o = { v: 2 };
   for (const e of SCENARIO_FIELDS) o[e.scen] = e.scenFromDom(inputVal(el(e.el)));
-  o.st = getStreams().map(s => ({ l: s.label, a: +s.amount || 0, f: String(s.from), t: s.to == null ? "" : String(s.to), c: s.cola ? 1 : 0 }));
+  o.st = getStreams().map(s => ({ l: s.label, a: +s.amount || 0, f: String(s.from), t: s.to == null ? "" : String(s.to), c: s.cola ? 1 : 0, b: s.basis === "ret" ? 1 : 0 }));
   return o;
 }
 
@@ -35,7 +35,7 @@ export function applyScenario(o) {
   // masks first and let renderStreams/syncLabels put them back.
   clearMasks();
   for (const e of SCENARIO_FIELDS) { const v = o[e.scen]; if (v == null) continue; el(e.el).value = e.domFromScen(v); }
-  if (Array.isArray(o.st)) setStreams(o.st.map(s => ({ label: s.l != null ? s.l : "Income", amount: +s.a || 0, from: String(s.f != null ? s.f : ""), to: s.t == null ? "" : String(s.t), cola: !!s.c })));
+  if (Array.isArray(o.st)) setStreams(o.st.map(s => ({ label: s.l != null ? s.l : "Income", amount: +s.a || 0, from: String(s.f != null ? s.f : ""), to: s.t == null ? "" : String(s.t), cola: !!s.c, basis: s.b ? "ret" : "age" })));
   renderStreams();
   toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y");
   refreshMasks();

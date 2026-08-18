@@ -31,20 +31,35 @@ export function allocFor(p) {
 // Flatten income streams into typed arrays keyed to year offsets from today, ready
 // for the hot loop. `sf` holds the per-stream inflation snapshot captured when a
 // non-COLA stream begins (so its real value can erode thereafter).
+//
+// A stream's from/to are read on one of two bases. "age" is a fixed age, so the
+// stream sits still while everything else moves. "ret" measures years from
+// retirement (0 = the year you retire, negative = before it), so the stream slides
+// with retAge — which is what makes "retire at X and take a job paying Y" a single
+// heatmap rather than one chart per retirement age.
 export function streamArrays(p) {
   const st = p.streams || [];
   const n = st.length;
   const ca = p.curAge;
+  // The same retirement offset the simulation loops use for `retired = y >= A`, so
+  // a stream anchored at retirement starts exactly when retirement does.
+  const A = phaseOf(p).A;
   const amt = new Float64Array(n);
   const from = new Int32Array(n);
   const to = new Int32Array(n);
   const cola = new Uint8Array(n);
   const sf = new Float64Array(n);
   for (let i = 0; i < n; i++) {
-    amt[i] = st[i].amount || 0;
-    from[i] = Math.max(0, (st[i].from == null ? ca : st[i].from) - ca);
-    to[i] = st[i].to == null ? 1e9 : Math.max(0, st[i].to - ca);
-    cola[i] = st[i].cola ? 1 : 0;
+    const s = st[i], rel = s.basis === "ret";
+    const f = rel ? A + (s.from || 0) : (s.from == null ? ca : s.from) - ca;
+    const t = s.to == null ? 1e9 : (rel ? A + s.to : s.to - ca);
+    amt[i] = s.amount || 0;
+    // A window that opened before today starts today instead. One that already
+    // closed pays nothing — clamping its end up to 0 as well would squeeze a
+    // finished pension into a single payment in year 0.
+    from[i] = Math.max(0, f);
+    to[i] = t < 0 ? -1 : t;
+    cola[i] = s.cola ? 1 : 0;
   }
   return { n, amt, from, to, cola, sf };
 }

@@ -6,7 +6,7 @@
 //
 //   3~ca-55~spend-90000~st-Social_Security*30000*67**1
 //   |  |                  |
-//   |  |                  income streams, "!"-separated: label*amount*from*to*cola
+//   |  |                  income streams, "!"-separated: label*amount*from*to*cola*basis
 //   |  one field: <scenario key><KV><value>, "~"-separated
 //   body version
 //
@@ -38,7 +38,7 @@ const MAX_STREAMS = 12, MAX_LABEL = 40;
 const BASE = Object.freeze({
   start: 1500000, spend: 70000, ca: 65, ra: 65, ea: 95, ct: 0, fee: 0.2, tx: 0,
   sm: "fixed", gb: 20, gs: 10, gf: 80, gc: 120, am: "fixed", stk: 60, gsv: 60, gev: 30,
-  smp: "iid", bl: 5, sims: 1000, st: [{ l: "Pension", a: 0, f: "65", t: "", c: 0 }],
+  smp: "iid", bl: 5, sims: 1000, st: [{ l: "Pension", a: 0, f: "65", t: "", c: 0, b: 0 }],
 });
 
 const FIELD_BY_KEY = {};
@@ -69,9 +69,12 @@ function decField(e, raw) {
 const same = (a, b) => b !== undefined && String(a) === String(b);
 
 // ---------- Income streams ----------
+// `b` is the age basis: 0 = fixed ages, 1 = years relative to retirement. It rides
+// last so every code written before it existed decodes to 0, which is what those
+// codes meant.
 function encStreams(list) {
   return (list || []).map(s => {
-    const f = [encTxt(s.l == null ? "" : s.l), num(s.a), String(s.f == null ? "" : s.f), String(s.t == null ? "" : s.t), s.c ? "1" : "0"];
+    const f = [encTxt(s.l == null ? "" : s.l), num(s.a), String(s.f == null ? "" : s.f), String(s.t == null ? "" : s.t), s.c ? "1" : "0", s.b ? "1" : "0"];
     // Trailing empties and zeros are what the decoder assumes anyway. Two fields are
     // always kept so a blank stream still encodes as something ("*0"), which is what
     // separates "one empty stream" from "no streams at all".
@@ -89,6 +92,7 @@ function decStreams(raw) {
       f: String(f[2] || ""),
       t: String(f[3] || ""),
       c: f[4] === "1" ? 1 : 0,
+      b: f[5] === "1" ? 1 : 0,
     };
   });
 }
