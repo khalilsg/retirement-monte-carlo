@@ -1,0 +1,3 @@
+# Playwright is a dev-only convenience for tools/browser-check.mjs, never a
+# dependency of the app itself — nothing here ships.
+node_modules/

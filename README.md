@@ -40,7 +40,28 @@ src/
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
                       privacy.js — private-mode toggle, input masking, leak guards
   version.js          the version string shown in the footer
+test/                 node --test suite over the engine, config, and codec
+tools/                dev scripts (browser-check.mjs — end-to-end via Playwright)
 ```
+
+### Testing
+The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
+
+```bash
+node --test test/*.test.js                        # ~40 assertions, about a second
+node --test --test-reporter=spec test/*.test.js   # readable output when something fails
+```
+
+`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, and the behavior of the three simulators. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
+
+The control layer and the charts need a real DOM, so those are checked end-to-end against the actual page:
+
+```bash
+npm i -D playwright && npx playwright install chromium   # once
+node tools/browser-check.mjs
+```
+
+It serves the repo on an ephemeral port, drives the page, and fails on a bad assertion or any console error. Playwright is a dev convenience rather than a dependency of the app — with it absent the script exits 0 with a note. Run it by hand before anything that touches the UI or the charts.
 
 ### Versioning
 [`src/version.js`](src/version.js) holds the version shown in the footer, and is bumped on every push that changes the app:
@@ -51,7 +72,7 @@ src/
 
 Docs-only and CI-only changes don't bump the version.
 
-A `pre-push` hook in [`.githooks/`](.githooks/pre-push) blocks a push that leaves `src/version.js` untouched. Enable it once per clone:
+A `pre-push` hook in [`.githooks/`](.githooks/pre-push) blocks a push whose tests fail or that leaves `src/version.js` untouched. It runs the Node suite only — the browser check needs Playwright and a few seconds of real page, so it stays manual. Enable the hook once per clone:
 
 ```bash
 git config core.hooksPath .githooks
