@@ -109,6 +109,17 @@ function refocus(host, sel, i) {
   if (target) target.focus();
 }
 
+// Focus something inside one scenario's card. The refocus() above indexes across
+// every match in the host, which for a per-stream control spans every scenario —
+// so a delete in the second card would send focus into the first.
+function refocusIn(host, card, sel, j, fallback) {
+  const scope = host.querySelectorAll(".ldscen")[card];
+  if (!scope) return;
+  const nodes = scope.querySelectorAll(sel);
+  const target = nodes.length ? nodes[Math.max(0, Math.min(j, nodes.length - 1))] : scope.querySelector(fallback);
+  if (target) target.focus();
+}
+
 function tierName(t, i) { return t.label && t.label.trim() ? t.label.trim() : "Tier " + (i + 1); }
 function variantName(v, i) { return v.label && v.label.trim() ? v.label.trim() : "Scenario " + (i + 1); }
 
@@ -254,10 +265,9 @@ function renderVariants(focus) {
     const i = +ev.currentTarget.dataset.i, list = variants[i].streams;
     list.push({ label: "Part-time", amount: 0, from: "0", to: "", cola: true, basis: "ret" });
     markTouched();
-    renderVariants({ sel: ".vs-label", i: 0 });
-    // Land in the new stream's name field, wherever the rebuild put it.
-    const fields = host.querySelectorAll(`.ldscen:nth-of-type(${i + 1}) .vs-label`);
-    if (fields.length) fields[fields.length - 1].focus();
+    renderVariants();
+    // Land in the new stream's name field — it's the first thing you'd fill in.
+    refocusIn(host, i, ".vs-label", list.length - 1, ".lv-add");
     scheduleLadder();
   });
   on(".lv-copy", "click", ev => {
@@ -265,6 +275,17 @@ function renderVariants(focus) {
     variants[i].streams = getStreams().map(s => Object.assign({}, s));
     markTouched();
     renderVariants({ sel: ".lv-copy", i });
+    scheduleLadder();
+  });
+  on(".vs-del", "click", ev => {
+    const i = +ev.currentTarget.dataset.i, j = +ev.currentTarget.dataset.j;
+    variants[i].streams.splice(j, 1);
+    markTouched();
+    renderVariants();
+    // Land on the delete button that slid into this slot, so a run of removals
+    // works without reaching for the mouse, falling back to "+ Add income" once
+    // the scenario has no streams left.
+    refocusIn(host, i, ".vs-del", j, ".lv-add");
     scheduleLadder();
   });
   on(".vs-label", "input", ev => { S(ev.target).label = ev.target.value; markTouched(); scheduleLadder(); });
@@ -275,13 +296,15 @@ function renderVariants(focus) {
   on(".vs-cola", "change", ev => { S(ev.target).cola = ev.target.checked; markTouched(); scheduleLadder(); });
   on(".vs-basis", "change", ev => {
     const s = S(ev.target), rel = ev.target.value === "ret";
+    const i = +ev.target.dataset.i, j = +ev.target.dataset.j;
     // Same reasoning as the plan's stream editor: "65" is an age on one basis and
     // 65 years after retiring on the other, so the old numbers can't carry over.
     s.basis = rel ? "ret" : "age";
     s.from = rel ? "0" : String(readParams().retAge);
     s.to = "";
     markTouched();
-    renderVariants({ sel: ".vs-basis", i: 0 });
+    renderVariants();
+    refocusIn(host, i, ".vs-basis", j, ".lv-add");
     scheduleLadder();
   });
   el("ld-add-scen").disabled = variants.length >= MAX_VARIANTS;

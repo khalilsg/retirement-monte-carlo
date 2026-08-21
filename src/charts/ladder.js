@@ -56,8 +56,8 @@ export function renderLadder(cfg, tiers, variants) {
   const svg = el("ladder"); svg.innerHTML = "";
   const p = readParams(), nSims = currentSims();
   const active = variants.filter(v => v.on).slice(0, MAX_ACTIVE);
-  renderLegend(active);
   if (!tiers.length || !active.length) {
+    renderLegend(active, false);
     const msg = !tiers.length ? "Add a tier to build the ladder." : "Switch on a scenario to compare.";
     empty(svg, msg);
     return;
@@ -69,7 +69,7 @@ export function renderLadder(cfg, tiers, variants) {
     { key: "age", title: "Earliest retirement age", rows: out.rows.filter(r => r.cells[0].solvedFor === "age") },
     { key: "spend", title: "Maximum annual spend", rows: out.rows.filter(r => r.cells[0].solvedFor === "spend") },
   ].filter(pn => pn.rows.length);
-  draw(svg, panels, active, cfg);
+  renderLegend(active, draw(svg, panels, active, cfg));
   describeLadder(panels, active, cfg);
   buildLadderTable(panels, active, cfg);
 }
@@ -84,12 +84,16 @@ function empty(svg, msg) {
 
 // The legend is markup rather than SVG so it reuses the fan chart's .legend styling
 // and stays readable at any text size without competing for viewBox room.
-function renderLegend(active) {
-  el("ld-legend").innerHTML = active.map((v, i) =>
-    `<span class="li"><span class="swatch" style="background:${SCEN_COLORS[i]}"></span>${escapeHtml(v.label)}</span>`).join("");
+function renderLegend(active, agreed) {
+  const items = active.map((v, i) =>
+    `<span class="li"><span class="swatch" style="background:${SCEN_COLORS[i]}"></span>${escapeHtml(v.label)}</span>`);
+  if (agreed) items.push('<span class="li li-agree"><span class="swatch" style="background:var(--muted)"></span>scenarios agree</span>');
+  el("ld-legend").innerHTML = items.join("");
 }
 
 function draw(svg, panels, active, cfg) {
+  // Set by the row loop when two or more scenarios shared a marker.
+  let agreed = false;
   // Row height and the tier-name gutter both hold text, so both scale with it, and
   // the viewBox height is derived — a taller row makes a taller chart rather than
   // crowding the one below it. Same scheme as the tornado chart.
@@ -145,8 +149,25 @@ function draw(svg, panels, active, cfg) {
       const x0 = Math.min(...xs), x1 = Math.max(...xs);
       // The connector is the finding: how far the scenarios' answers sit apart.
       if (x1 - x0 > 1) svg.appendChild(svgEl("line", { x1: x0, y1: cy, x2: x1, y2: cy, stroke: "var(--edge)", "stroke-width": 3 * sc, "stroke-linecap": "round" }));
+      // Scenarios that reach the same answer land on the same pixel, and the last
+      // one drawn hides the rest — which, now that a legend names the colours, reads
+      // as "only the green one is already achievable" when in fact they all agree.
+      // Nesting them as rings turns a stack of dashed markers into speckle, so a
+      // stack is drawn once instead, in neutral grey, with a legend entry saying
+      // what grey means. The tooltip and the table still name every scenario.
+      const stack = {};
+      for (const x of xs) { const key = Math.round(x); stack[key] = (stack[key] || 0) + 1; }
+      const drawn = {};
       row.cells.forEach((c, i) => {
-        const col = SCEN_COLORS[i], solved = c.status === "solved";
+        const key = Math.round(xs[i]), shared = stack[key] > 1;
+        if (shared && drawn[key]) return;
+        drawn[key] = true;
+        if (shared) agreed = true;
+        // A stack counts as solved only if every scenario in it actually crossed.
+        const solved = shared
+          ? row.cells.every((o, j) => Math.round(xs[j]) !== key || o.status === "solved")
+          : c.status === "solved";
+        const col = shared ? "var(--muted)" : SCEN_COLORS[i];
         // A hollow marker for the two no-crossing cases: it sits at the boundary
         // that was probed, and reads as "the answer is past here", not as a figure.
         svg.appendChild(svgEl("circle", {
@@ -168,6 +189,7 @@ function draw(svg, panels, active, cfg) {
   }
   const rect = svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" }); svg.appendChild(rect);
   ladderState = { svg, W, H, hits, active, cfg, rect }; attachLadderHover();
+  return agreed;
 }
 
 // How much of the axis a panel actually shows.

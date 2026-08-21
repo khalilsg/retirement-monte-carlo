@@ -168,6 +168,32 @@ eq((await ladderRows()).length, 3, "the tiers come back from the code");
 eq(await page.inputValue(".ldtier:nth-of-type(3) .lt-age"), "62", "with the anchored figure intact");
 eq(await page.$eval(".ldtier:nth-of-type(3) .lt-anchor", s => s.value), "age", "and the anchor it was saved on");
 
+// --- a scenario's income stream can be removed again ---
+await page.click(".ldscen:nth-of-type(2) .lv-add");
+await settle(700);
+eq((await page.$$(".ldscen:nth-of-type(2) .ldstream")).length, 1, "a scenario takes an income stream");
+await page.click(".ldscen:nth-of-type(2) .vs-del");
+await settle(900);
+eq((await page.$$(".ldscen:nth-of-type(2) .ldstream")).length, 0, "and the stream's x removes it again");
+
+// --- the legend names each drawn scenario, beside the chart it labels ---
+const legend = await page.$$eval("#ld-legend .li", ls => ls.map(l => l.textContent.trim()));
+eq(JSON.stringify(legend), JSON.stringify(["As planned", "Full stop"]), "the legend names every drawn scenario");
+eq(await page.$eval("#ld-legend", n => n.nextElementSibling.id), "ladder", "and sits directly above the chart, not up in the card head");
+
+// --- scenarios that agree share one neutral marker, and the legend says so ---
+// Two scenarios reaching the same answer land on the same pixel; drawn in their own
+// colours, the last one wins and the legend then reads as a claim about that one
+// scenario. Making the second scenario inherit the plan forces the case.
+const legendNow = () => page.$$eval("#ld-legend .li", ls => ls.map(l => l.textContent.trim()));
+await page.check(".ldscen:nth-of-type(2) .lv-useplan");
+await settle(2200);
+const agreed = await legendNow();
+ok(agreed.includes("scenarios agree"), `identical scenarios collapse to one marker (${agreed.join(", ")})`);
+await page.uncheck(".ldscen:nth-of-type(2) .lv-useplan");
+await settle(2200);
+ok(!(await legendNow()).includes("scenarios agree"), "and the note goes once they diverge again");
+
 // --- the age axis fits the answers, not the search bounds ---
 // A long plan-through age searches far more years than the answers span. Drawn to
 // the search bounds, every rung piles up against the left edge.

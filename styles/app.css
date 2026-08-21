@@ -290,6 +290,15 @@
   .ldstream .stream-grid { grid-template-columns: 1fr 1fr 1fr; }
   @media (max-width: 520px) { .ldstream .stream-grid { grid-template-columns: 1fr 1fr; } }
 
+  /* The legend sits with the chart rather than up in the card head: the tier and
+     scenario editors come between them, so a head legend scrolls out of sight
+     before you reach the dots it names. */
+  .ladder-legend { margin: 14px 0 2px; padding-top: 12px; border-top: 1px solid var(--hairline); }
+  .ladder-legend:empty { display: none; }
+  .ladder-legend .li { font-weight: 500; color: var(--ink); }
+  .ladder-legend .li-agree { color: var(--muted); font-weight: 400; font-style: italic; }
+  .ladder-legend .swatch { border-radius: 50%; }
+
   #ladder text.ld-name { font-family: var(--font-sans); font-size: 11px; fill: var(--ink); }
   #ladder text.ld-val { font-family: var(--font-mono); font-size: 9.5px; fill: var(--faint); font-variant-numeric: tabular-nums; }
 
