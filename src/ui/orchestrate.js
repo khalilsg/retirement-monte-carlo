@@ -132,7 +132,11 @@ function attachEvents() {
 export function init() {
   initFooter();
   attachEvents();
-  initValueInputs(scheduleLive);
+  // toggleModePanels alongside the recompute: initValueInputs steers a slider by
+  // assigning range.value, which fires no input event, so the range's own listener
+  // never runs. Without this, typing 32 into current age and 45 into retirement age
+  // leaves "Annual contribution" hidden despite thirteen years of accumulation.
+  initValueInputs(() => { toggleModePanels(); scheduleLive(); });
   initScenarios();
   // Before loadInitial, so a shared code carrying a ladder has one to overwrite.
   initLadder(debouncedLadder);

@@ -168,6 +168,30 @@ eq((await ladderRows()).length, 3, "the tiers come back from the code");
 eq(await page.inputValue(".ldtier:nth-of-type(3) .lt-age"), "62", "with the anchored figure intact");
 eq(await page.$eval(".ldtier:nth-of-type(3) .lt-anchor", s => s.value), "age", "and the anchor it was saved on");
 
+// --- the age axis fits the answers, not the search bounds ---
+// A long plan-through age searches far more years than the answers span. Drawn to
+// the search bounds, every rung piles up against the left edge.
+const slide = (id, v) => page.$eval(id, (e, val) => { e.value = val; e.dispatchEvent(new Event("input", { bubbles: true })); }, v);
+await slide("#end-age", "110");
+await settle(2600);
+const ageTicks = await page.$$eval("#ladder .axis text", ts => ts.map(t => +t.textContent).filter(Number.isFinite));
+const lastTick = Math.max(...ageTicks);
+ok((await ladderRows()).some(r => /^\d+$/.test(r[3])), "there are solved ages for the axis to fit to");
+ok(lastTick < 90, `the age axis fits the answers, not the 55-109 search range (ends at ${lastTick})`);
+
+// --- typing an age into a slider's box still toggles the panels it gates ---
+// initValueInputs steers the range by assigning range.value, which fires no input
+// event — so the range's own listener, the only other caller of toggleModePanels,
+// never runs. Retiring at the current age hides the contribution field; the check
+// is that typing a later age into the box beside the slider brings it back.
+await slide("#cur-age", "40");
+await slide("#ret-age", "40");
+await settle(600);
+eq(await page.$eval("#contrib-field", n => n.hidden), true, "retiring today hides the contribution field");
+await page.fill("#ret-age-v", "55");
+await settle(600);
+eq(await page.$eval("#contrib-field", n => n.hidden), false, "and typing a later retirement age brings it back");
+
 ok(noise.length === 0, `no console errors or page exceptions${noise.length ? ": " + noise.join(" | ") : ""}`);
 
 await browser.close();

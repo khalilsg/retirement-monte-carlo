@@ -113,8 +113,10 @@ function draw(svg, panels, active, cfg) {
 
   const hits = [];
   for (const pn of panels) {
-    const c0 = pn.rows[0].cells[0];
-    const lo = c0.lo, hi = c0.hi;
+    const [lo, hi] = domainOf(pn.rows, pn.key === "age");
+    // Clamping is what keeps the two no-crossing cases on the chart: their markers
+    // sit at a search bound, which the fitted domain usually excludes, so they pin
+    // to the edge — which is exactly what a hollow dashed dot should mean.
     const xOf = v => m.l + (hi === lo ? 0 : (Math.max(lo, Math.min(hi, v)) - lo) / (hi - lo) * iw);
     pn.xOf = xOf; pn.lo = lo; pn.hi = hi; pn.rowH = rowH;
 
@@ -166,6 +168,32 @@ function draw(svg, panels, active, cfg) {
   }
   const rect = svgEl("rect", { x: 0, y: 0, width: W, height: H, fill: "transparent" }); svg.appendChild(rect);
   ladderState = { svg, W, H, hits, active, cfg, rect }; attachLadderHover();
+}
+
+// How much of the axis a panel actually shows.
+//
+// The search bounds are the obvious domain and the wrong one. Someone retiring in
+// their thirties and planning through 110 searches seventy-eight years to answer
+// within about twelve of them, and every rung lands in the first sixth of the axis
+// — five dots in a heap against the left edge. So the domain fits the answers
+// instead, padded a little, and never wider than what was actually searched. The
+// hint under the controls still states the full search range in words.
+function domainOf(rows, whole) {
+  const bounds = rows[0].cells[0];
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows) for (const c of r.cells) if (c.status === "solved") {
+    if (c.value < lo) lo = c.value;
+    if (c.value > hi) hi = c.value;
+  }
+  // Nothing crossed anywhere in this panel, so there are no answers to fit to —
+  // fall back to the range that was searched, which is the finding in that case.
+  if (lo > hi) return [bounds.lo, bounds.hi];
+  // Enough padding that a dot never sits on the axis line, and that a panel whose
+  // answers all agree still gets a sane span rather than a zero-width one.
+  const pad = Math.max((hi - lo) * 0.12, (bounds.hi - bounds.lo) * 0.02, whole ? 1 : 1000);
+  const a = Math.max(bounds.lo, whole ? Math.floor(lo - pad) : lo - pad);
+  const b = Math.min(bounds.hi, whole ? Math.ceil(hi + pad) : hi + pad);
+  return b > a ? [a, b] : [bounds.lo, bounds.hi];
 }
 
 // Even divisions of an age range give ticks like 65, 70, 75, 80, 84, 89, 94 — the
