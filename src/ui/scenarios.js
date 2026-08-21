@@ -10,6 +10,7 @@ import {
   getStreams, setStreams, renderStreams, toggleModePanels,
   buildSweepOptions, fillSweepRange, buildHeatOptions, fillHeatRange,
 } from "./controls.js";
+import { getLadder, setLadder, isTouched } from "./ladder.js";
 import { recompute } from "./orchestrate.js";
 import { clearMasks, refreshMasks } from "./privacy.js";
 
@@ -18,6 +19,11 @@ export function readScenario() {
   const o = { v: 2 };
   for (const e of SCENARIO_FIELDS) o[e.scen] = e.scenFromDom(inputVal(el(e.el)));
   o.st = getStreams().map(s => ({ l: s.label, a: +s.amount || 0, f: String(s.from), t: s.to == null ? "" : String(s.to), c: s.cola ? 1 : 0, b: s.basis === "ret" ? 1 : 0 }));
+  // The step-up ladder rides along only once it has been edited. Its default rungs
+  // are derived from the plan's own spending, so an untouched one reconstructs
+  // itself on the far end — and carrying it anyway would lengthen every code
+  // shared by everyone who never opened that card.
+  if (isTouched()) o.ld = getLadder();
   return o;
 }
 
@@ -36,6 +42,10 @@ export function applyScenario(o) {
   clearMasks();
   for (const e of SCENARIO_FIELDS) { const v = o[e.scen]; if (v == null) continue; el(e.el).value = e.domFromScen(v); }
   if (Array.isArray(o.st)) setStreams(o.st.map(s => ({ label: s.l != null ? s.l : "Income", amount: +s.a || 0, from: String(s.f != null ? s.f : ""), to: s.t == null ? "" : String(s.t), cola: !!s.c, basis: s.b ? "ret" : "age" })));
+  // A code with no ladder leaves the current one alone rather than clearing it:
+  // an untouched ladder re-seeds off the incoming plan on the next draw, and a
+  // ladder the reader built themselves is not the sender's to throw away.
+  if (o.ld) setLadder(o.ld);
   renderStreams();
   toggleModePanels(); buildSweepOptions(); fillSweepRange(); buildHeatOptions(); fillHeatRange("x"); fillHeatRange("y");
   refreshMasks();

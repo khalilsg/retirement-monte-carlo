@@ -10,6 +10,13 @@
 //   |  one field: <scenario key><KV><value>, "~"-separated
 //   body version
 //
+// One field, "ld", carries the step-up ladder (tiers and comparison scenarios). It
+// needs separators of its own two levels deeper than this grammar has, so it rides
+// as a self-contained sub-body of its own, base64'd into an alphabet that survives
+// the free-text escaper untouched. See "The ladder sub-body" below. It is written
+// only once the ladder has actually been edited, so a code from anyone who ignores
+// the ladder is exactly as short as it was before the feature existed.
+//
 // Over the top goes the v4 envelope (see "Obfuscation" below), which is what
 // actually ships: the same scenario as "4NmpXbUFuS0hDWndqSg…". Only base64url
 // characters come out, so a code survives a query string, a hash, a chat window,
@@ -97,6 +104,74 @@ function decStreams(raw) {
   });
 }
 
+// ---------- The ladder sub-body ----------
+// A ladder is a list of tiers and a list of named scenarios, and a scenario carries
+// a stream list — three levels of nesting under the field value, where the v3 body
+// affords none. So it gets its own grammar with its own separators and is then
+// base64'd, which flattens the whole thing back to one opaque token.
+//
+// The token's alphabet is the point: base64url with "." standing in for "_", so the
+// characters that come out are exactly [A-Za-z0-9-.] — none of which encTxt escapes
+// and none of which "_" decoding turns back into a space. The token therefore
+// passes through the outer grammar as an ordinary value, unescaped and unexpanded.
+//
+//   L1|<target>|<maxSpend>|<tier>;<tier>|<scenario>;<scenario>
+//     tier      = label,anchor(0 spend / 1 age),spend,age
+//     scenario  = label,on,useplan,<stream>!<stream>
+//     stream    = label*amount*from*to*cola*basis   (as above)
+//
+// Labels go through encTxt, which escapes everything outside [A-Za-z0-9-.] — every
+// separator here included — so no label can tear the grammar apart.
+const LV = "L1";
+const L0 = "|", L1 = ";", L2 = ",";
+
+const MAX_TIERS = 12, MAX_VARIANTS = 6;
+
+const b64d = bytes => btoa(String.fromCharCode.apply(null, bytes)).replace(/\+/g, "-").replace(/\//g, ".").replace(/=+$/, "");
+function unb64d(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/\./g, "/"));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+// A ladder object is { target, maxSpend, tiers: [...], scenarios: [...] }, in the
+// same shape ui/ladder.js holds it.
+export function encodeLadder(L) {
+  if (!L || !Array.isArray(L.tiers) || !Array.isArray(L.scenarios)) return "";
+  const tiers = L.tiers.map(t => [encTxt(t.label == null ? "" : t.label), t.anchor === "age" ? "1" : "0", num(t.spend), num(t.age)].join(L2)).join(L1);
+  const scen = L.scenarios.map(v => [
+    encTxt(v.label == null ? "" : v.label), v.on ? "1" : "0", v.useplan ? "1" : "0", encStreams((v.streams || []).map(s => ({ l: s.label, a: s.amount, f: s.from, t: s.to, c: s.cola ? 1 : 0, b: s.basis === "ret" ? 1 : 0 }))),
+  ].join(L2)).join(L1);
+  const body = [LV, num(L.target), num(L.maxSpend), tiers, scen].join(L0);
+  try { return b64d(new TextEncoder().encode(body)); } catch (e) { return ""; }
+}
+
+export function decodeLadder(token) {
+  let body = "";
+  try { body = new TextDecoder().decode(unb64d(String(token))); } catch (e) { return null; }
+  const parts = body.split(L0);
+  // A token that lost its tail can still begin "L1|85|21", which would decode to a
+  // plausible-looking ladder with no rungs in it. Both the version and the full
+  // section count have to be there.
+  if (parts[0] !== LV || parts.length < 5) return null;
+  const tiers = (parts[3] || "").split(L1).filter(Boolean).slice(0, MAX_TIERS).map(rec => {
+    const f = rec.split(L2);
+    return { label: decTxt(f[0] || "").slice(0, MAX_LABEL), anchor: f[1] === "1" ? "age" : "spend", spend: +f[2] || 0, age: +f[3] || 0 };
+  });
+  const scenarios = (parts[4] || "").split(L1).filter(Boolean).slice(0, MAX_VARIANTS).map(rec => {
+    const f = rec.split(L2);
+    return {
+      label: decTxt(f[0] || "").slice(0, MAX_LABEL),
+      on: f[1] === "1",
+      useplan: f[2] === "1",
+      streams: decStreams(f[3] || "").map(s => ({ label: s.l, amount: s.a, from: s.f, to: s.t, cola: !!s.c, basis: s.b ? "ret" : "age" })),
+    };
+  });
+  if (!tiers.length) return null;
+  return { target: +parts[1] || 0, maxSpend: +parts[2] || 0, tiers, scenarios };
+}
+
 // ---------- The v3 body ----------
 function encodeBody(o) {
   if (!o) return "";
@@ -110,6 +185,10 @@ function encodeBody(o) {
     const st = encStreams(o.st);
     if (st !== encStreams(BASE.st)) parts.push("st" + KV + st);
   }
+  // No baseline to diff against: the ladder's own defaults are derived from the
+  // plan's spending rather than fixed, so the field is present exactly when the
+  // caller decided there was a ladder worth carrying.
+  if (o.ld) { const ld = encodeLadder(o.ld); if (ld) parts.push("ld" + KV + ld); }
   return parts.join(REC);
 }
 
@@ -122,6 +201,9 @@ function decodeV3(s) {
     if (i < 0) continue;
     const k = rec.slice(0, i), raw = rec.slice(i + 1);
     if (k === "st") { o.st = decStreams(raw); continue; }
+    // A ladder that fails to decode is dropped rather than half-applied: an absent
+    // ladder is a state the UI already handles (it seeds one), a mangled one isn't.
+    if (k === "ld") { const ld = decodeLadder(raw); if (ld) o.ld = ld; continue; }
     const e = FIELD_BY_KEY[k];
     if (e) o[k] = decField(e, raw);   // unknown keys: a newer code read by an older build
   }

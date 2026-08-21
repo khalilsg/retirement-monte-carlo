@@ -124,6 +124,50 @@ await settle(1200);
 const bases = await page.$$eval(".stream .s-basis", ss => ss.map(s => s.value));
 eq(JSON.stringify(bases), JSON.stringify(["ret", "age"]), "the bridge preset shows both bases");
 
+// --- the step-up ladder ---
+// The bridge preset is still loaded: two income streams and a retirement age of 60.
+await settle(1800);
+const ladderRows = () => page.$$eval("#ladder-table tbody tr",
+  trs => trs.map(tr => [tr.querySelector("th").textContent, ...[...tr.querySelectorAll("td")].map(td => td.textContent)]));
+
+const seeded = await ladderRows();
+eq(JSON.stringify(seeded.map(r => r[0])), JSON.stringify(["Bare-bones", "Necessities", "Comfortable"]), "the ladder seeds a rung per tier");
+eq(await page.inputValue(".ldtier:nth-of-type(2) .lt-spend"), "60,000", "an untouched ladder seeds off the plan's spending");
+eq((await page.$$("#ld-legend .li")).length, 2, "both seeded scenarios reach the legend");
+eq(JSON.stringify(seeded.map(r => r[2])), JSON.stringify(["Earliest age", "Earliest age", "Earliest age"]), "spend-anchored tiers solve for an age");
+
+// An untouched ladder must not lengthen the code — that is what keeps the feature
+// free for everyone who never opens the card.
+await page.click("#copy-code");
+await settle(300);
+const bare = await page.inputValue("#scen-code");
+
+// Anchoring a tier on its age moves it to the other panel, solved the other way.
+await page.selectOption(".ldtier:nth-of-type(3) .lt-anchor", "age");
+await settle(400);
+await page.fill(".ldtier:nth-of-type(3) .lt-age", "62");
+await settle(2000);
+const flipped = await ladderRows();
+eq(flipped[2][2], "Max spend", "an age-anchored tier solves for a spend");
+ok(/^\$[\d,]+$/.test(flipped[2][3]), `and reports one (${flipped[2][3]})`);
+eq(flipped[2][1], "age 62", "holding the age it was given");
+
+// --- an edited ladder rides in the share code ---
+await page.click("#copy-code");
+await settle(300);
+const withLadder = await page.inputValue("#scen-code");
+ok(withLadder.length > bare.length, `an edited ladder lengthens the code (${bare.length} -> ${withLadder.length})`);
+
+await page.click(".ldtier:nth-of-type(1) .lt-del");
+await settle(800);
+eq((await ladderRows()).length, 2, "a removed tier leaves the ladder");
+await page.fill("#scen-code", withLadder);
+await page.click("#load-code");
+await settle(2200);
+eq((await ladderRows()).length, 3, "the tiers come back from the code");
+eq(await page.inputValue(".ldtier:nth-of-type(3) .lt-age"), "62", "with the anchored figure intact");
+eq(await page.$eval(".ldtier:nth-of-type(3) .lt-anchor", s => s.value), "age", "and the anchor it was saved on");
+
 ok(noise.length === 0, `no console errors or page exceptions${noise.length ? ": " + noise.join(" | ") : ""}`);
 
 await browser.close();

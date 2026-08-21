@@ -1,3 +1,7 @@
 # Playwright is a dev-only convenience for tools/browser-check.mjs, never a
-# dependency of the app itself — nothing here ships.
+# dependency of the app itself — nothing here ships. The README's `npm i -D
+# playwright` writes a manifest and a lockfile alongside it; the app has no build
+# step and no package.json of its own, so those are transient too.
 node_modules/
+package.json
+package-lock.json

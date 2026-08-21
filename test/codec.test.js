@@ -3,7 +3,7 @@
 // as fields are added to the format.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { encodeScenario, decodeScenario } from "../src/config/codec.js";
+import { encodeScenario, decodeScenario, encodeLadder, decodeLadder } from "../src/config/codec.js";
 import { BUILTIN, PRESETS } from "../src/config/presets.js";
 
 const scenario = (over = {}) => ({ ...BUILTIN, ...over });
@@ -103,4 +103,72 @@ test("a hostile code cannot spawn unbounded streams or labels", () => {
 test("the scrambled code is base64url-safe", () => {
   const code = encodeScenario(scenario({ start: 1234567, spend: 89000 }));
   assert.match(code, /^4[A-Za-z0-9_-]+$/, "a code must survive a query string untouched");
+});
+
+// ---------- The ladder sub-body ----------
+// The ladder rides inside one field of the v3 body, so its own grammar has to
+// survive that field's escaping — and the field has to be genuinely optional, or
+// the feature lengthens every code shared by everyone who never opens the ladder.
+
+const ladder = (over = {}) => ({
+  target: 85, maxSpend: 210000,
+  tiers: [
+    { label: "Bare-bones", anchor: "spend", spend: 42000, age: 65 },
+    { label: "Comfortable", anchor: "age", spend: 84000, age: 62 },
+  ],
+  scenarios: [
+    { label: "As planned", on: true, useplan: true, streams: [] },
+    { label: "Full stop", on: false, useplan: false, streams: [
+      { label: "Part-time", amount: 35000, from: "4", to: "9", cola: true, basis: "ret" },
+    ] },
+  ],
+  ...over,
+});
+
+test("a ladder round-trips inside a scenario code", () => {
+  const ld = ladder();
+  const back = decodeScenario(encodeScenario(scenario({ ld })));
+  assert.deepEqual(back.ld, ld);
+});
+
+test("a code without a ladder is not lengthened by the feature", () => {
+  // The whole reason the field is written only on demand: someone who never opens
+  // the ladder must keep shipping exactly the code they shipped before it existed.
+  const plain = encodeScenario(scenario({ start: 900000, spend: 42000 }));
+  assert.equal(decodeScenario(plain).ld, undefined, "no ladder field comes back");
+  assert.ok(encodeScenario(scenario({ start: 900000, spend: 42000, ld: ladder() })).length > plain.length);
+});
+
+test("the ladder token survives the outer grammar untouched", () => {
+  // Every separator the outer body uses ("~", "-", "!", "*") and every character
+  // encTxt would escape has to be absent from the token, or the field tears in half
+  // on the way back out.
+  const token = encodeLadder(ladder());
+  assert.match(token, /^[A-Za-z0-9.-]+$/);
+});
+
+test("a label full of separators cannot tear the ladder apart", () => {
+  const nasty = "a|b;c,d!e*f~g_h%i-j.k";
+  const ld = ladder({ tiers: [{ label: nasty, anchor: "spend", spend: 1000, age: 60 }] });
+  const back = decodeScenario(encodeScenario(scenario({ ld })));
+  assert.equal(back.ld.tiers.length, 1);
+  assert.equal(back.ld.tiers[0].label, nasty);
+});
+
+test("a mangled ladder is dropped, not half-applied", () => {
+  for (const junk of ["", "!!!", "Zm9v", "TDF8"]) {
+    assert.equal(decodeLadder(junk), null, `${junk} should not decode`);
+  }
+  // And a scenario carrying one still loads: the ladder is the only casualty.
+  const back = decodeScenario("3~spend-42000~ld-Zm9vYmFy");
+  assert.equal(back.spend, 42000);
+  assert.equal(back.ld, undefined);
+});
+
+test("a hostile ladder cannot spawn unbounded tiers or labels", () => {
+  const many = Array.from({ length: 40 }, (_, i) => `T${i},0,1000,60`).join(";");
+  const wide = "x".repeat(400) + ",0,1000,60";
+  const tok = body => decodeLadder(btoa("L1|85|210000|" + body + "|").replace(/\+/g, "-").replace(/\//g, ".").replace(/=+$/, ""));
+  assert.ok(tok(many).tiers.length <= 12, "tier count capped");
+  assert.ok(tok(wide).tiers[0].label.length <= 40, "label length capped");
 });

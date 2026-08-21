@@ -415,6 +415,60 @@
         <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="heat-table"></table></div></details>
       </section>
 
+      <section class="card chart-card" id="ladder-card" aria-labelledby="ld-h">
+        <div class="chart-head">
+          <div><h2 class="card-title" id="ld-h">Step-up ladder</h2><p class="card-sub">Not one retire/don't-retire number — a rung per lifestyle tier. Each tier holds the target success rate fixed and solves for the other half: name a spend and get the earliest age, or name an age and get the most you could spend.</p></div>
+          <div class="legend" id="ld-legend"></div>
+        </div>
+
+        <div class="ladder-controls">
+          <div class="field"><label for="ld-target">Target success</label><input type="text" inputmode="numeric" id="ld-target" value="85"></div>
+          <div class="field"><label for="ld-max">Search spending up to</label><div class="input-money"><input type="text" inputmode="numeric" class="money" id="ld-max" data-priv-kind="flow" value="210,000"></div></div>
+        </div>
+        <p class="hint" id="ld-note"></p>
+
+        <div class="ladder-editors">
+          <div class="ladder-pane">
+            <h3 class="ladder-h">Tiers</h3>
+            <p class="hint">Name the rungs of your own ladder. Each one is anchored on whichever half you actually have an opinion about; the other is solved for.</p>
+            <div id="ld-tiers"></div>
+            <button type="button" class="btn small" id="ld-add-tier">+ Add tier</button>
+          </div>
+          <div class="ladder-pane">
+            <h3 class="ladder-h">Scenarios</h3>
+            <p class="hint">Variations on what you earn after stopping. Dates measured <b>relative to retirement</b> slide with every age the solver tries — that's what makes "a break, then part-time" one line instead of one per age.</p>
+            <div id="ld-scens"></div>
+            <p class="hint" id="ld-scen-note"></p>
+            <button type="button" class="btn small" id="ld-add-scen">+ Add scenario</button>
+          </div>
+        </div>
+
+        <svg id="ladder" viewBox="0 0 760 300" role="img" aria-label="Step-up ladder of retirement age or spending by lifestyle tier"></svg>
+        <details class="method">
+          <summary>How to read this</summary>
+          <p>Every rung fixes your <b>target success probability</b> and solves for one number. A tier anchored on
+            <b>spend</b> asks "at this lifestyle, when is the earliest I could stop and still clear the target?"; one
+            anchored on <b>age</b> asks "if I stop then, what's the most I could spend?" Both are found by
+            <b>bisecting the actual simulation</b> — the same engine as everything else, narrowed to the crossing point
+            rather than read off a grid, so the figure is exact to a year or a few hundred dollars rather than to the
+            width of a heatmap cell.</p>
+          <p>Each tier carries one dot per scenario, joined by a line: the line's length <em>is</em> the finding — how
+            much those assumptions are worth to that rung of the ladder.</p>
+          <p>A <b>hollow, dashed dot</b> means there was no crossing to find, and the figure beside it says which way.
+            <em>"Already, at 55"</em> — the target is met from the first age searched, so there is nothing to wait for.
+            <em>"Not by 94"</em> — no age in range reaches it. <em>"Over $210k"</em> — the spending search hit its own
+            ceiling, so raise the box above rather than reading it as an answer. <em>"Not at any spend"</em> — the plan
+            misses the target even spending nothing, so the shortfall is somewhere other than lifestyle.</p>
+          <p><b>One caveat on the age search.</b> It assumes retiring later doesn't make things worse, which is almost
+            always true but not guaranteed: a retirement-relative income stream slides along with each age being tried,
+            and guardrails reset off the balance on the day you stop. Where the relationship doubles back, the search
+            finds <em>a</em> crossing rather than provably the earliest one. Common random numbers keep it stable —
+            the same plan always gives the same answer — but the sensitivity sweep over retirement age is the place to
+            check the shape if a rung looks wrong.</p>
+        </details>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="ladder-table"></table></div></details>
+      </section>
+
       <details class="method">
         <summary>Method &amp; assumptions</summary>
         <p><b>Historical bootstrap.</b> Returns are not modeled with a formula. Each simulated year uses a real

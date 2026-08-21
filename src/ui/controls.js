@@ -102,23 +102,27 @@ export function renderStreams(focus) {
   if (focus) refocus(focus.sel, focus.i);
 }
 
-// Normalize the raw stream inputs into the numeric shape the engine expects.
+// Normalize one raw stream into the numeric shape the engine expects.
 // On the "ret" basis from/to are offsets in years from retirement, so negatives are
 // meaningful ("two years before I retire") and the floor at zero doesn't apply —
 // streamArrays clamps the resolved year instead.
-export function normStreams() {
-  return streams.map(s => {
-    const rel = s.basis === "ret";
-    const blank = v => v == null || String(v).trim() === "";
-    const yr = v => Math.round(parseNum(v)) || 0;
-    return {
-      label: s.label, amount: +s.amount || 0, basis: rel ? "ret" : "age",
-      from: rel ? yr(s.from) : Math.max(0, yr(s.from)),
-      to: blank(s.to) ? null : (rel ? yr(s.to) : Math.max(0, yr(s.to))),
-      cola: !!s.cola,
-    };
-  });
+//
+// Exported per-stream because the ladder's comparison scenarios hold stream lists of
+// their own (ui/ladder.js), and a second copy of this arithmetic is exactly how the
+// two would drift apart.
+export function normStream(s) {
+  const rel = s.basis === "ret";
+  const blank = v => v == null || String(v).trim() === "";
+  const yr = v => Math.round(parseNum(v)) || 0;
+  return {
+    label: s.label, amount: +s.amount || 0, basis: rel ? "ret" : "age",
+    from: rel ? yr(s.from) : Math.max(0, yr(s.from)),
+    to: blank(s.to) ? null : (rel ? yr(s.to) : Math.max(0, yr(s.to))),
+    cola: !!s.cola,
+  };
 }
+
+export function normStreams() { return streams.map(normStream); }
 
 // ---------- Reading params from the DOM ----------
 export function readParams() {

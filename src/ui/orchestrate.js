@@ -13,9 +13,11 @@ import { renderSequence, drawSequence } from "../charts/sequence.js";
 import { renderTornado } from "../charts/tornado.js";
 import { renderSweep } from "../charts/sweep.js";
 import { renderHeat } from "../charts/heat.js";
+import { renderLadder } from "../charts/ladder.js";
 import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { loadInitial, initScenarios } from "./scenarios.js";
+import { initLadder, ladderConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, renderLadderControls } from "./ladder.js";
 import { initPrivacy, swapInputs } from "./privacy.js";
 import { initFooter } from "./footer.js";
 
@@ -30,12 +32,24 @@ function recomputeLight() {
   renderOutcome(r); renderFan(r);
 }
 
-// Heavy path: the sequence card, sensitivity sweep, tornado, and heatmap —
-// dozens/hundreds of extra simulation runs. This is also the settle point, so it's
-// where the screen-reader summary is released: it runs once the inputs stop moving,
+// Heavy path: the sequence card, sensitivity sweep, tornado, heatmap, and step-up
+// ladder — dozens/hundreds of extra simulation runs. This is also the settle point,
+// so it's where the screen-reader summary is released: it runs once inputs stop,
 // never on the per-frame path, which keeps the live region from being flooded
 // mid-drag with figures that are obsolete before they finish being spoken.
-function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); renderHeat(); flushSummary(); }
+function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); renderHeat(); drawLadder(); flushSummary(); }
+
+// The ladder bisects the simulation once per tier per active scenario — roughly 60
+// runs at the seeded three-by-two, against the heatmap's 400 for a default grid, so
+// it sits on the settle path with everything else. That ratio is a function of how
+// many rungs and scenarios you define, though: a full twelve tiers against four
+// scenarios is heatmap-scale on its own, and if the settle starts to drag this is
+// the call to move behind a button.
+function drawLadder() {
+  syncLadderSeed();
+  syncLadderNote();
+  renderLadder(ladderConfig(), getTiers(), getVariants());
+}
 
 export function recompute() { recomputeLight(); recomputeHeavy(); }
 
@@ -77,6 +91,7 @@ export function commitTyping() { debouncedRecompute.cancel(); recompute(); }
 export function debounced() { if (pending) cancelAnimationFrame(pending); pending = requestAnimationFrame(recompute); }
 const debouncedSweep = debounce(renderSweep, HEAVY_MS);
 const debouncedHeat = debounce(renderHeat, HEAVY_MS);
+const debouncedLadder = debounce(drawLadder, TYPING_MS);
 
 function attachEvents() {
   const attachMoney = id => { const e = el(id); e.addEventListener("blur", () => { if (isPrivate()) return; e.value = commafy(parseNum(e.value)); commitTyping(); }); e.addEventListener("input", scheduleTyping); };
@@ -119,9 +134,11 @@ export function init() {
   attachEvents();
   initValueInputs(scheduleLive);
   initScenarios();
+  // Before loadInitial, so a shared code carrying a ladder has one to overwrite.
+  initLadder(debouncedLadder);
   // Toggling privacy changes how every figure renders, including the income-stream
   // option labels, so the dropdowns are rebuilt alongside the recompute.
-  initPrivacy(() => { buildSweepOptions(); buildHeatOptions(); recompute(); });
+  initPrivacy(() => { buildSweepOptions(); buildHeatOptions(); renderLadderControls(); recompute(); });
   renderStreams();
   toggleModePanels();
   buildSweepOptions();
