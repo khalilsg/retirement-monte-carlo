@@ -423,6 +423,10 @@
         <div class="ladder-controls">
           <div class="field"><label for="ld-target">Target success</label><input type="text" inputmode="numeric" id="ld-target" value="85"></div>
           <div class="field"><label for="ld-max">Search spending up to</label><div class="input-money"><input type="text" inputmode="numeric" class="money" id="ld-max" data-priv-kind="flow" value="210,000"></div></div>
+          <div class="field"><label for="ld-domain">Chart axis</label><select id="ld-domain">
+            <option value="fit">Fit to answers</option>
+            <option value="full">Show full search range</option>
+          </select></div>
         </div>
         <p class="hint" id="ld-note"></p>
 
@@ -454,10 +458,11 @@
             width of a heatmap cell.</p>
           <p>Each tier carries one dot per scenario, joined by a line: the line's length <em>is</em> the finding — how
             much those assumptions are worth to that rung of the ladder.</p>
-          <p>The axis spans the <b>answers</b>, not the whole search. Retiring in your thirties and planning through 110
-            means seventy-eight years are searched to answer within about twelve of them, and an axis drawn to the
-            search bounds would pile every rung against the left edge. The range actually searched is stated in words
-            just under the two boxes above.</p>
+          <p>By default the axis spans the <b>answers</b>, not the whole search. Retiring in your thirties and planning
+            through 110 means seventy-eight years are searched to answer within about twelve of them, and an axis drawn
+            to the search bounds would pile every rung against the left edge. The range actually searched is stated in
+            words just under the boxes above, and the <b>Chart axis</b> box there can show that full range instead — a
+            fitted axis magnifies small gaps between rungs, which is the right default but not the only honest view.</p>
           <p>A <b>hollow, dashed dot</b> means there was no crossing to find, and the figure beside it says which way.
             <em>"Already, at 55"</em> — the target is met from the first age searched, so there is nothing to wait for.
             <em>"Not by 94"</em> — no age in range reaches it. <em>"Over $210k"</em> — the spending search hit its own
@@ -482,8 +487,12 @@
           together — so high-inflation years carry their actual effect on real bond returns and purchasing power.</p>
         <p><b>Return sampling.</b> <em>Independent years</em> draws each year at random (no memory). <em>Blocks</em>
           draws contiguous runs of the chosen length (a circular block bootstrap), preserving real sequences like the
-          1929–33 crash or 1973–74 stagflation. Blocks strengthen sequence-of-returns risk, so they give a more
-          faithful read on glide paths, bond tents, and early-retirement fragility.</p>
+          1929–33 crash or 1973–74 stagflation. That cuts two ways. Over the first few years it preserves clustered
+          downturns, so blocks give the more faithful (harsher) read on glide paths, bond tents, and early-retirement
+          fragility. But the historical record also has mild mean reversion, which blocks preserve and independent
+          years destroy — over a long plan-through age that compounds into a tighter, higher distribution of returns,
+          so blocks become the friendlier assumption instead. Which effect dominates depends on the horizon: short
+          plans see blocks as riskier, long ones see them as gentler.</p>
         <p><b>Real dollars.</b> Nominal returns are converted to real using that year's inflation
           (<code>(1+nominal)/(1+inflation) − 1</code>). Base spending stays constant in today's dollars.</p>
         <p><b>Income streams.</b> Each stream reduces the net withdrawal while it's active (its year range).

@@ -186,13 +186,23 @@ eq(await page.$eval("#ld-legend", n => n.nextElementSibling.id), "ladder", "and 
 // colours, the last one wins and the legend then reads as a claim about that one
 // scenario. Making the second scenario inherit the plan forces the case.
 const legendNow = () => page.$$eval("#ld-legend .li", ls => ls.map(l => l.textContent.trim()));
-await page.check(".ldscen:nth-of-type(2) .lv-useplan");
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "plan");
 await settle(2200);
 const agreed = await legendNow();
 ok(agreed.includes("scenarios agree"), `identical scenarios collapse to one marker (${agreed.join(", ")})`);
-await page.uncheck(".ldscen:nth-of-type(2) .lv-useplan");
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "only");
 await settle(2200);
 ok(!(await legendNow()).includes("scenarios agree"), "and the note goes once they diverge again");
+
+// --- the income-source select offers three modes, and only "plan" hides the editor ---
+const modeOptions = await page.$$eval(".ldscen:nth-of-type(2) .lv-mode option", os => os.map(o => o.value));
+eq(JSON.stringify(modeOptions), JSON.stringify(["plan", "layer", "only"]), "three income-source modes are offered");
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "plan");
+eq(await page.$(".ldscen:nth-of-type(2) .ldstreams"), null, "\"use the plan's income\" hides the stream editor");
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "layer");
+ok(await page.$(".ldscen:nth-of-type(2) .ldstreams") !== null, "\"plus these\" still shows the stream editor");
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "only");
+await settle(700);
 
 // --- the age axis fits the answers, not the search bounds ---
 // A long plan-through age searches far more years than the answers span. Drawn to
@@ -204,6 +214,14 @@ const ageTicks = await page.$$eval("#ladder .axis text", ts => ts.map(t => +t.te
 const lastTick = Math.max(...ageTicks);
 ok((await ladderRows()).some(r => /^\d+$/.test(r[3])), "there are solved ages for the axis to fit to");
 ok(lastTick < 90, `the age axis fits the answers, not the 55-109 search range (ends at ${lastTick})`);
+
+// --- the "Chart axis" toggle switches back to the full search range on request ---
+await page.selectOption("#ld-domain", "full");
+await settle(2600);
+const fullTicks = await page.$$eval("#ladder .axis text", ts => ts.map(t => +t.textContent).filter(Number.isFinite));
+ok(Math.max(...fullTicks) >= 100, `"Show full search range" restores the search bounds (ends at ${Math.max(...fullTicks)})`);
+await page.selectOption("#ld-domain", "fit");
+await settle(2600);
 
 // --- typing an age into a slider's box still toggles the panels it gates ---
 // initValueInputs steers the range by assigning range.value, which fires no input

@@ -117,8 +117,15 @@ function decStreams(raw) {
 //
 //   L1|<target>|<maxSpend>|<tier>;<tier>|<scenario>;<scenario>
 //     tier      = label,anchor(0 spend / 1 age),spend,age
-//     scenario  = label,on,useplan,<stream>!<stream>
+//     scenario  = label,on,useplan,<stream>!<stream>,layer
 //     stream    = label*amount*from*to*cola*basis   (as above)
+//
+// `layer` is appended after the streams, not folded into `useplan`, so a code from
+// before it existed still decodes to exactly what it meant then: `useplan` alone
+// picks "inherit the plan" vs. "replace it", the two modes that existed at the time.
+// A missing `layer` field defaults to 0 ("replace"), which is that old meaning.
+// Only when useplan is 0 does layer matter: 1 means "plan's income, plus these"
+// instead of "only these".
 //
 // Labels go through encTxt, which escapes everything outside [A-Za-z0-9-.] — every
 // separator here included — so no label can tear the grammar apart.
@@ -141,7 +148,7 @@ export function encodeLadder(L) {
   if (!L || !Array.isArray(L.tiers) || !Array.isArray(L.scenarios)) return "";
   const tiers = L.tiers.map(t => [encTxt(t.label == null ? "" : t.label), t.anchor === "age" ? "1" : "0", num(t.spend), num(t.age)].join(L2)).join(L1);
   const scen = L.scenarios.map(v => [
-    encTxt(v.label == null ? "" : v.label), v.on ? "1" : "0", v.useplan ? "1" : "0", encStreams((v.streams || []).map(s => ({ l: s.label, a: s.amount, f: s.from, t: s.to, c: s.cola ? 1 : 0, b: s.basis === "ret" ? 1 : 0 }))),
+    encTxt(v.label == null ? "" : v.label), v.on ? "1" : "0", v.useplan ? "1" : "0", encStreams((v.streams || []).map(s => ({ l: s.label, a: s.amount, f: s.from, t: s.to, c: s.cola ? 1 : 0, b: s.basis === "ret" ? 1 : 0 }))), v.layer ? "1" : "0",
   ].join(L2)).join(L1);
   const body = [LV, num(L.target), num(L.maxSpend), tiers, scen].join(L0);
   try { return b64d(new TextEncoder().encode(body)); } catch (e) { return ""; }
@@ -166,6 +173,9 @@ export function decodeLadder(token) {
       on: f[1] === "1",
       useplan: f[2] === "1",
       streams: decStreams(f[3] || "").map(s => ({ label: s.l, amount: s.a, from: s.f, to: s.t, cola: !!s.c, basis: s.b ? "ret" : "age" })),
+      // Absent on any code written before this mode existed, which defaults it to 0
+      // ("replace") — exactly what `useplan: false` meant on its own back then.
+      layer: f[4] === "1",
     };
   });
   if (!tiers.length) return null;

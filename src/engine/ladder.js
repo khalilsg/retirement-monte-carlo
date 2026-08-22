@@ -40,13 +40,19 @@ function clone(p) {
   return q;
 }
 
-// Lay a scenario's income assumptions over the plan. A scenario that inherits the
-// plan's streams (`useplan`) is the baseline you compare the others against.
+// Lay a scenario's income assumptions over the plan. Three ways to do that:
+//   useplan: true         — inherit the plan's streams verbatim; the baseline you
+//                            compare the others against. `streams`/`layer` are unused.
+//   useplan: false, layer  — append the scenario's own streams to the plan's, so
+//                            "the plan, plus a side gig" doesn't have to drop the
+//                            plan's Social Security to add one line of part-time pay.
+//   useplan: false         — replace the plan's streams with the scenario's own,
+//                            for "full stop" and other clean-slate scenarios.
 export function applyVariant(p, variant) {
   const q = clone(p);
-  if (variant && !variant.useplan && Array.isArray(variant.streams)) {
-    q.streams = variant.streams.map(s => Object.assign({}, s));
-  }
+  if (!variant || variant.useplan) return q;
+  const own = Array.isArray(variant.streams) ? variant.streams.map(s => Object.assign({}, s)) : [];
+  q.streams = variant.layer ? q.streams.concat(own) : own;
   return q;
 }
 

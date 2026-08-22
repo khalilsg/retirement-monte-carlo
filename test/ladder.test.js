@@ -102,6 +102,14 @@ test("a scenario replaces the plan's streams, and inheriting leaves them alone",
   assert.notEqual(inherit.streams[0], p.streams[0]);
 });
 
+test("a layered scenario appends its own streams to the plan's instead of discarding them", () => {
+  const p = plan({ streams: [ret(0, 99, 40000)] });
+  const layered = applyVariant(p, { useplan: false, layer: true, streams: [ret(4, 9, 20000)] });
+  assert.equal(layered.streams.length, 2, "the plan's Social Security survives alongside the side gig");
+  assert.equal(layered.streams[0].amount, 40000);
+  assert.equal(layered.streams[1].amount, 20000);
+});
+
 test("a bridge income lets a spend-anchored tier retire earlier", () => {
   const p = plan(), target = 85, tier = { label: "Comfortable", anchor: "spend", spend: 70000, age: 65 };
   const cfg = { target, maxSpend: 200000 };

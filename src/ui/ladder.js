@@ -52,12 +52,13 @@ export function getTiers() {
   return tiers.map(t => ({ label: t.label, anchor: t.anchor === "age" ? "age" : "spend", spend: Math.max(0, +t.spend || 0), age: Math.round(+t.age || 0) }));
 }
 export function getVariants() {
-  return variants.map(v => ({ label: v.label, on: !!v.on, useplan: !!v.useplan, streams: (v.streams || []).map(normStream) }));
+  return variants.map(v => ({ label: v.label, on: !!v.on, useplan: !!v.useplan, layer: !!v.layer, streams: (v.streams || []).map(normStream) }));
 }
 export function ladderConfig() {
   return {
     target: Math.max(1, Math.min(100, parseNum(el("ld-target").value) || 85)),
     maxSpend: Math.max(1000, parseNum(inputVal(el("ld-max")))),
+    fullRange: el("ld-domain").value === "full",
   };
 }
 
@@ -73,7 +74,7 @@ export function setLadder(L) {
   if (!L || !Array.isArray(L.tiers)) return;
   tiers = L.tiers.slice(0, MAX_TIERS).map(t => ({ label: t.label || "Tier", anchor: t.anchor === "age" ? "age" : "spend", spend: +t.spend || 0, age: +t.age || 0 }));
   variants = (L.scenarios || []).slice(0, MAX_VARIANTS).map(v => ({
-    label: v.label || "Scenario", on: !!v.on, useplan: !!v.useplan,
+    label: v.label || "Scenario", on: !!v.on, useplan: !!v.useplan, layer: !!v.layer,
     streams: (v.streams || []).map(s => ({ label: s.label || "Income", amount: +s.amount || 0, from: String(s.from == null ? "" : s.from), to: s.to == null ? "" : String(s.to), cola: !!s.cola, basis: s.basis === "ret" ? "ret" : "age" })),
   }));
   if (L.target) el("ld-target").value = String(L.target);
@@ -222,7 +223,11 @@ function renderVariants(focus) {
       </div>
       <label class="cola"><input type="checkbox" class="lv-on" data-i="${i}" ${v.on ? "checked" : ""}> Show on the ladder</label>
       ${over ? `<p class="hint">Not drawn — only ${MAX_ACTIVE} scenarios fit on one ladder.</p>` : ""}
-      <label class="cola"><input type="checkbox" class="lv-useplan" data-i="${i}" ${v.useplan ? "checked" : ""}> Use the plan's income streams</label>
+      <label class="mini ldscen-mode">Income<select class="lv-mode" data-i="${i}" aria-label="${name}: income source">
+        <option value="plan"${v.useplan ? " selected" : ""}>Use the plan's income</option>
+        <option value="layer"${!v.useplan && v.layer ? " selected" : ""}>The plan's income, plus these</option>
+        <option value="only"${!v.useplan && !v.layer ? " selected" : ""}>Only these</option>
+      </select></label>
       ${v.useplan ? "" : `<div class="ldstreams">${streamRows(v, i)}</div>
       <div class="ldscen-acts">
         <button type="button" class="btn small lv-add" data-i="${i}">+ Add income</button>
@@ -248,10 +253,12 @@ function renderVariants(focus) {
     renderVariants({ sel: ".lv-on", i });
     scheduleLadder();
   });
-  on(".lv-useplan", "change", ev => {
-    const i = +ev.target.dataset.i;
-    variants[i].useplan = ev.target.checked; markTouched();
-    renderVariants({ sel: ".lv-useplan", i });
+  on(".lv-mode", "change", ev => {
+    const i = +ev.target.dataset.i, mode = ev.target.value;
+    variants[i].useplan = mode === "plan";
+    variants[i].layer = mode === "layer";
+    markTouched();
+    renderVariants({ sel: ".lv-mode", i });
     scheduleLadder();
   });
   on(".lv-del", "click", ev => {
@@ -346,6 +353,9 @@ export function initLadder(onChange) {
   });
   ["ld-target", "ld-max"].forEach(id => el(id).addEventListener("input", () => { markTouched(); scheduleLadder(); }));
   el("ld-max").addEventListener("blur", () => { if (!isPrivate()) el("ld-max").value = commafy(parseNum(el("ld-max").value)); });
+  // The axis mode is a display preference, not a solve input — it doesn't mark the
+  // ladder touched or ride in the shared code, just redraws with the same answers.
+  el("ld-domain").addEventListener("change", () => scheduleLadder());
 }
 
 // The card's one-line summary of what it's solving against, kept in step with the

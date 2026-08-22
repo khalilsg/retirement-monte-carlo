@@ -117,8 +117,8 @@ const ladder = (over = {}) => ({
     { label: "Comfortable", anchor: "age", spend: 84000, age: 62 },
   ],
   scenarios: [
-    { label: "As planned", on: true, useplan: true, streams: [] },
-    { label: "Full stop", on: false, useplan: false, streams: [
+    { label: "As planned", on: true, useplan: true, layer: false, streams: [] },
+    { label: "Full stop", on: false, useplan: false, layer: false, streams: [
       { label: "Part-time", amount: 35000, from: "4", to: "9", cola: true, basis: "ret" },
     ] },
   ],
@@ -163,6 +163,28 @@ test("a mangled ladder is dropped, not half-applied", () => {
   const back = decodeScenario("3~spend-42000~ld-Zm9vYmFy");
   assert.equal(back.spend, 42000);
   assert.equal(back.ld, undefined);
+});
+
+test("a layered scenario round-trips its mode", () => {
+  const ld = ladder({ scenarios: [
+    { label: "Plan + side gig", on: true, useplan: false, layer: true, streams: [
+      { label: "Consulting", amount: 20000, from: "0", to: "5", cola: false, basis: "ret" },
+    ] },
+  ] });
+  const back = decodeScenario(encodeScenario(scenario({ ld })));
+  assert.equal(back.ld.scenarios[0].useplan, false);
+  assert.equal(back.ld.scenarios[0].layer, true);
+});
+
+test("a ladder token from before the layer mode existed still decodes to its old meaning", () => {
+  // Same grammar, minus the trailing ",layer" field — exactly what encodeLadder
+  // produced before this field was appended.
+  const pre = "L1|85|210000|Bare-bones,0,42000,65|As.planned,1,1,;Full.stop,1,0,";
+  const b64 = s => btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g, "-").replace(/\//g, ".").replace(/=+$/, "");
+  const ld = decodeLadder(b64(pre));
+  assert.equal(ld.scenarios[0].useplan, true, "'As planned' still means inherit the plan");
+  assert.equal(ld.scenarios[1].useplan, false, "'Full stop' still means replace");
+  assert.equal(ld.scenarios[1].layer, false, "a missing layer field defaults to the old 'replace' meaning");
 });
 
 test("a hostile ladder cannot spawn unbounded tiers or labels", () => {

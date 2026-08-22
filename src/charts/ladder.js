@@ -117,7 +117,7 @@ function draw(svg, panels, active, cfg) {
 
   const hits = [];
   for (const pn of panels) {
-    const [lo, hi] = domainOf(pn.rows, pn.key === "age");
+    const [lo, hi] = domainOf(pn.rows, pn.key === "age", cfg.fullRange);
     // Clamping is what keeps the two no-crossing cases on the chart: their markers
     // sit at a search bound, which the fitted domain usually excludes, so they pin
     // to the edge — which is exactly what a hollow dashed dot should mean.
@@ -194,14 +194,17 @@ function draw(svg, panels, active, cfg) {
 
 // How much of the axis a panel actually shows.
 //
-// The search bounds are the obvious domain and the wrong one. Someone retiring in
-// their thirties and planning through 110 searches seventy-eight years to answer
+// The search bounds are the obvious domain and the wrong default. Someone retiring
+// in their thirties and planning through 110 searches seventy-eight years to answer
 // within about twelve of them, and every rung lands in the first sixth of the axis
 // — five dots in a heap against the left edge. So the domain fits the answers
 // instead, padded a little, and never wider than what was actually searched. The
-// hint under the controls still states the full search range in words.
-function domainOf(rows, whole) {
+// hint under the controls still states the full search range in words, and the
+// "Chart axis" select beside the target/cap boxes can ask for that full range back
+// — a fitted axis magnifies small gaps, which is a fair reading but not the only one.
+function domainOf(rows, whole, full) {
   const bounds = rows[0].cells[0];
+  if (full) return [bounds.lo, bounds.hi];
   let lo = Infinity, hi = -Infinity;
   for (const r of rows) for (const c of r.cells) if (c.status === "solved") {
     if (c.value < lo) lo = c.value;
