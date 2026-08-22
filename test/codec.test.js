@@ -165,6 +165,20 @@ test("a mangled ladder is dropped, not half-applied", () => {
   assert.equal(back.ld, undefined);
 });
 
+test("layer is only written where it can mean something", () => {
+  // applyVariant ignores `layer` whenever useplan is true, so the token shouldn't
+  // spend characters on it there — an inherit-the-plan scenario with layer:true
+  // must encode identically to one with layer:false.
+  const withLayer = ladder({ scenarios: [{ label: "As planned", on: true, useplan: true, layer: true, streams: [] }] });
+  const without = ladder({ scenarios: [{ label: "As planned", on: true, useplan: true, layer: false, streams: [] }] });
+  assert.equal(encodeLadder(withLayer), encodeLadder(without));
+  // And a scenario that isn't layering at all shouldn't cost bytes for saying so:
+  // its record should end right after the streams, not carry a trailing ",0".
+  const only = ladder({ scenarios: [{ label: "Only these", on: true, useplan: false, layer: false, streams: [] }] });
+  const layered = ladder({ scenarios: [{ label: "Only these", on: true, useplan: false, layer: true, streams: [] }] });
+  assert.ok(encodeLadder(layered).length > encodeLadder(only).length, "layer:true still costs something when it applies");
+});
+
 test("a layered scenario round-trips its mode", () => {
   const ld = ladder({ scenarios: [
     { label: "Plan + side gig", on: true, useplan: false, layer: true, streams: [
