@@ -244,7 +244,12 @@
   #seq-summary { font-size: 12.5px; color: var(--muted); }
 
   /* ---- Step-up ladder ---- */
-  .ladder-controls { display: grid; grid-template-columns: 150px 200px 180px; gap: 12px; margin-bottom: 4px; }
+  /* Fractions, not fixed pixels. This card sits in the right-hand column, which is
+     only about 430px wide just above the 880px layout breakpoint — narrower than
+     three fixed boxes need, so a third control turned the whole page into a
+     sideways scroll between 881px and 1005px. Fractions cannot overflow, and the
+     620px rule below still drops to two columns on a phone. */
+  .ladder-controls { display: grid; grid-template-columns: .8fr 1.1fr 1fr; gap: 12px; margin-bottom: 4px; }
   @media (max-width: 620px) { .ladder-controls { grid-template-columns: 1fr 1fr; } }
   .ladder-controls .field { margin: 0; }
   .ladder-controls label { font-size: 11px; }

@@ -49,20 +49,55 @@ function cellWhy(c, target) {
 
 let ladderState = null;
 
+// The last solve, kept so that a change which cannot move an answer can redraw
+// without paying for one. A solve is a bisection per tier per scenario, each step a
+// full Monte Carlo, and the prober's memo lives only for the length of one solve —
+// so a repeat is a repeat in full. Measured on the main thread: about 90ms for a
+// seeded ladder at the default 1,000 sims, ~700ms at the 10,000-sim setting, and
+// 2.8s for a full 12-tier, 4-scenario ladder at 10,000. That is far too much to
+// spend re-drawing figures that did not change. The only control that asks for such
+// a redraw today is the "Chart axis" select, which picks a domain for answers
+// already in hand.
+//
+// Keyed on nothing: every path that CAN move an answer goes through renderLadder()
+// and overwrites this wholesale, so it cannot serve a stale figure. That is also
+// why it isn't a cache keyed on the inputs — the reshuffle button rebuilds the
+// sampling matrix behind identical inputs, and an input-keyed cache would happily
+// return the pre-reshuffle answers.
+let lastSolve = null;
+
 // The tiers and scenarios are passed in rather than read from ui/ladder.js: that
 // module draws this palette on its scenario swatches, and having the two import
 // each other would leave whichever loaded second holding an uninitialized binding.
 export function renderLadder(cfg, tiers, variants) {
-  const svg = el("ladder"); svg.innerHTML = "";
+  const svg = el("ladder");
   const p = readParams(), nSims = currentSims();
   const active = variants.filter(v => v.on).slice(0, MAX_ACTIVE);
   if (!tiers.length || !active.length) {
+    lastSolve = null;
+    svg.innerHTML = "";
     renderLegend(active, false);
     const msg = !tiers.length ? "Add a tier to build the ladder." : "Switch on a scenario to compare.";
     empty(svg, msg);
     return;
   }
-  const out = solveLadder(p, nSims, cfg, tiers, active);
+  lastSolve = { out: solveLadder(p, nSims, cfg, tiers, active), active };
+  paint(cfg);
+}
+
+// Redraw the answers already solved, under a different display setting. Returns
+// false when there is nothing solved to redraw — an empty ladder, or a first paint
+// that hasn't happened yet — so the caller can fall back to a full render rather
+// than leave the chart untouched.
+export function redrawLadder(cfg) {
+  if (!lastSolve) return false;
+  paint(cfg);
+  return true;
+}
+
+function paint(cfg) {
+  const { out, active } = lastSolve;
+  const svg = el("ladder"); svg.innerHTML = "";
   // A tier's anchor decides which panel it lands in: spend-anchored tiers were
   // solved for an age, age-anchored ones for a dollar figure.
   const panels = [

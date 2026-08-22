@@ -51,7 +51,7 @@ tools/                dev scripts (browser-check.mjs — end-to-end via Playwrig
 The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
 
 ```bash
-node --test test/*.test.js                        # ~40 assertions, about a second
+node --test test/*.test.js                        # 60 tests, about a second
 node --test --test-reporter=spec test/*.test.js   # readable output when something fails
 ```
 

@@ -487,12 +487,23 @@
           together — so high-inflation years carry their actual effect on real bond returns and purchasing power.</p>
         <p><b>Return sampling.</b> <em>Independent years</em> draws each year at random (no memory). <em>Blocks</em>
           draws contiguous runs of the chosen length (a circular block bootstrap), preserving real sequences like the
-          1929–33 crash or 1973–74 stagflation. That cuts two ways. Over the first few years it preserves clustered
-          downturns, so blocks give the more faithful (harsher) read on glide paths, bond tents, and early-retirement
-          fragility. But the historical record also has mild mean reversion, which blocks preserve and independent
-          years destroy — over a long plan-through age that compounds into a tighter, higher distribution of returns,
-          so blocks become the friendlier assumption instead. Which effect dominates depends on the horizon: short
-          plans see blocks as riskier, long ones see them as gentler.</p>
+          1929–33 crash or 1973–74 stagflation. It is tempting to call blocks the conservative choice, and this
+          model does not bear that out. What blocks mostly preserve is the record's mild <b>mean reversion</b>, which
+          independent years destroy: a bad run is somewhat more likely to be followed by a good one. Over a long
+          horizon that narrows the spread of outcomes without moving the middle of it. Running this engine with no
+          withdrawals over 60 years, five-year blocks leave the median end balance where independent years put it,
+          but lift the 10th percentile by about a fifth and cut the 90th by about a seventh.</p>
+        <p>So the question is not how long your plan runs but <b>where it already sits</b>. A tighter distribution
+          helps a plan whose middle path survives — the floor rises under it — and hurts one that was relying on a
+          lucky tail, because that tail is what gets trimmed. The crossover is near 50% success: above it blocks read
+          roughly two to four points friendlier than independent years, below it one to two points harsher, and the
+          sign holds at every horizon from twenty years to eighty. Sequence-of-returns risk is real and this model
+          shows it plainly elsewhere — see <b>Sequence-of-returns risk</b> above — but switching to blocks is not the
+          lever that surfaces it.</p>
+        <p>One caveat on all of that: the mean reversion is a property of a single 98-year record. It is a real
+          feature of that record rather than a modeling choice, but a plan that only clears its target under blocks is
+          leaning on the next fifty years reverting the way the last hundred did. Neither mode is the safe one to
+          trust by default — the gap between them is the thing worth looking at.</p>
         <p><b>Real dollars.</b> Nominal returns are converted to real using that year's inflation
           (<code>(1+nominal)/(1+inflation) − 1</code>). Base spending stays constant in today's dollars.</p>
         <p><b>Income streams.</b> Each stream reduces the net withdrawal while it's active (its year range).

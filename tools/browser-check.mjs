@@ -194,15 +194,54 @@ await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "only");
 await settle(2200);
 ok(!(await legendNow()).includes("scenarios agree"), "and the note goes once they diverge again");
 
-// --- the income-source select offers three modes, and only "plan" hides the editor ---
+// --- the three income-source modes produce three different ladders ---
+// Asserting that the select exists, or that it shows and hides the stream editor,
+// would pass with the layer mode entirely unwired: both of those follow from
+// `useplan` alone, which the old checkbox already drove. What has to be pinned is
+// that "plus these" actually layers — so give the scenario a large stream of its
+// own and read the solved age back off the table under each mode. The bridge
+// preset's two plan streams are what "plus these" adds on top.
 const modeOptions = await page.$$eval(".ldscen:nth-of-type(2) .lv-mode option", os => os.map(o => o.value));
 eq(JSON.stringify(modeOptions), JSON.stringify(["plan", "layer", "only"]), "three income-source modes are offered");
-await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "plan");
-eq(await page.$(".ldscen:nth-of-type(2) .ldstreams"), null, "\"use the plan's income\" hides the stream editor");
-await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "layer");
-ok(await page.$(".ldscen:nth-of-type(2) .ldstreams") !== null, "\"plus these\" still shows the stream editor");
+
 await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "only");
-await settle(700);
+await settle(400);
+await page.click(".ldscen:nth-of-type(2) .lv-add");
+await settle(500);
+await page.fill(".ldscen:nth-of-type(2) .vs-amount", "30000");
+await page.fill(".ldscen:nth-of-type(2) .vs-from", "0");
+await page.fill(".ldscen:nth-of-type(2) .vs-to", "35");
+await settle(2600);
+// Read the answer off the age-anchored tier, which solves for a maximum spend:
+// more income means more spend, with no ceiling short of the search cap. The
+// spend-anchored tiers are the wrong probe here — a bridge this size clears them
+// from the first age searched, so all three modes report "already, at 55" and
+// nothing distinguishes them. Column 3 is the first scenario, column 4 the second.
+const solvedSpend = async () => {
+  const rows = await ladderRows();
+  const row = rows.find(r => r[2] === "Max spend");
+  return row ? +row[4].replace(/[$,]/g, "") : NaN;
+};
+const onlyOwn = await solvedSpend();
+
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "layer");
+await settle(2600);
+const layered = await solvedSpend();
+eq(await page.$(".ldscen:nth-of-type(2) .lv-copy"), null, "layer mode drops \"Copy from plan\", which would double-count");
+ok(Number.isFinite(layered) && Number.isFinite(onlyOwn), `both modes solve to a spend (${onlyOwn}, ${layered})`);
+ok(layered > onlyOwn, `"plus these" adds the plan's income on top of the scenario's ($${layered} vs $${onlyOwn} on the scenario's alone)`);
+
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "plan");
+await settle(2600);
+eq(await page.$(".ldscen:nth-of-type(2) .ldstreams"), null, "\"use the plan's income\" hides the stream editor");
+const planOnly = await solvedSpend();
+ok(layered > planOnly, `and layering beats the plan's income alone ($${layered} vs $${planOnly})`);
+
+// Back to a scenario with its own stream only, for the axis checks below.
+await page.selectOption(".ldscen:nth-of-type(2) .lv-mode", "only");
+ok(await page.$(".ldscen:nth-of-type(2) .ldstreams") !== null, "\"only these\" brings the stream editor back");
+await page.click(".ldscen:nth-of-type(2) .vs-del");
+await settle(2600);
 
 // --- the age axis fits the answers, not the search bounds ---
 // A long plan-through age searches far more years than the answers span. Drawn to
@@ -216,12 +255,30 @@ ok((await ladderRows()).some(r => /^\d+$/.test(r[3])), "there are solved ages fo
 ok(lastTick < 90, `the age axis fits the answers, not the 55-109 search range (ends at ${lastTick})`);
 
 // --- the "Chart axis" toggle switches back to the full search range on request ---
+// And does it without re-solving. The select cannot move an answer, so it repaints
+// the solve already in hand rather than running the debounced recompute, which
+// re-bisects every tier against every scenario to arrive at identical figures.
+//
+// The budget below is 120ms, and the number matters: this ladder is small and the
+// check runs at the default 1,000 sims, so a re-solve here costs only ~40ms — but
+// it cannot dodge the 200ms typing debounce in front of it. Anything under 200ms
+// therefore proves the solve path was skipped, whatever the machine's speed, while
+// the repaint itself lands in ~15ms. Waiting on the axis to actually change, rather
+// than sleeping a fixed interval, is what lets the elapsed time mean anything.
+const axisEnd = () => page.$$eval("#ladder .axis text",
+  ts => Math.max(...ts.map(t => +t.textContent).filter(Number.isFinite)));
+const t0 = Date.now();
 await page.selectOption("#ld-domain", "full");
-await settle(2600);
-const fullTicks = await page.$$eval("#ladder .axis text", ts => ts.map(t => +t.textContent).filter(Number.isFinite));
-ok(Math.max(...fullTicks) >= 100, `"Show full search range" restores the search bounds (ends at ${Math.max(...fullTicks)})`);
+await page.waitForFunction(() => {
+  const ts = [...document.querySelectorAll("#ladder .axis text")].map(t => +t.textContent).filter(Number.isFinite);
+  return ts.length && Math.max(...ts) >= 100;
+}, null, { timeout: 4000 }).catch(() => {});
+const swapMs = Date.now() - t0;
+ok(await axisEnd() >= 100, `"Show full search range" restores the search bounds (ends at ${await axisEnd()})`);
+ok(swapMs < 120, `and repaints the existing solve rather than re-running it (${swapMs}ms)`);
 await page.selectOption("#ld-domain", "fit");
-await settle(2600);
+await settle(600);
+ok(await axisEnd() < 90, "and switching back re-fits to the answers");
 
 // --- typing an age into a slider's box still toggles the panels it gates ---
 // initValueInputs steers the range by assigning range.value, which fires no input

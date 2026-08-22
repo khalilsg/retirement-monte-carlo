@@ -11,7 +11,7 @@ import { el } from "../dom.js";
 import { parseNum, commafy, escapeHtml, fmtMoney, inputVal, isPrivate } from "../format.js";
 import { normStream, readParams, getStreams } from "./controls.js";
 import { refreshMasks, setMoneyInput } from "./privacy.js";
-import { SCEN_COLORS, MAX_ACTIVE } from "../charts/ladder.js";
+import { SCEN_COLORS, MAX_ACTIVE, redrawLadder } from "../charts/ladder.js";
 
 const MAX_TIERS = 12, MAX_VARIANTS = 6;
 
@@ -206,6 +206,14 @@ function streamRows(v, i) {
   }).join("");
 }
 
+// One card per comparison scenario. The income-source select is the card's spine:
+// "use the plan's income" hides the stream editor entirely, and the other two modes
+// show it but mean different things by it.
+//
+// "Copy from plan" is deliberately absent in layer mode. Layering already adds the
+// plan's streams, so copying them in on top would count every one of them twice —
+// and silently, since the ladder would just report a suspiciously early retirement
+// rather than anything that looks like an error.
 function renderVariants(focus) {
   const host = el("ld-scens");
   const activeCount = variants.filter(v => v.on).length;
@@ -231,7 +239,7 @@ function renderVariants(focus) {
       ${v.useplan ? "" : `<div class="ldstreams">${streamRows(v, i)}</div>
       <div class="ldscen-acts">
         <button type="button" class="btn small lv-add" data-i="${i}">+ Add income</button>
-        <button type="button" class="btn small lv-copy" data-i="${i}">Copy from plan</button>
+        ${v.layer ? "" : `<button type="button" class="btn small lv-copy" data-i="${i}">Copy from plan</button>`}
       </div>`}
     </div>`;
   }).join("");
@@ -354,8 +362,14 @@ export function initLadder(onChange) {
   ["ld-target", "ld-max"].forEach(id => el(id).addEventListener("input", () => { markTouched(); scheduleLadder(); }));
   el("ld-max").addEventListener("blur", () => { if (!isPrivate()) el("ld-max").value = commafy(parseNum(el("ld-max").value)); });
   // The axis mode is a display preference, not a solve input — it doesn't mark the
-  // ladder touched or ride in the shared code, just redraws with the same answers.
-  el("ld-domain").addEventListener("change", () => scheduleLadder());
+  // ladder touched or ride in the shared code. It also must not go through
+  // scheduleLadder(), which re-solves every tier against every scenario: that is
+  // seconds of blocked main thread to redraw figures the select cannot move.
+  // redrawLadder() repaints the answers already in hand, and reports false if
+  // there are none yet, in which case the full path is the right one anyway.
+  el("ld-domain").addEventListener("change", () => {
+    if (!redrawLadder(ladderConfig())) scheduleLadder();
+  });
 }
 
 // The card's one-line summary of what it's solving against, kept in step with the
