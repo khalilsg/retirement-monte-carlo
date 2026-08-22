@@ -69,9 +69,18 @@ It serves the repo on an ephemeral port, drives the page, and fails on a bad ass
 ### Versioning
 [`src/version.js`](src/version.js) holds the version shown in the footer, and is bumped on every push that changes the app:
 
-- Same-day follow-up pushes → increment the third number (1.0 → 1.0.1)
-- First push of the day, minor change → increment the second number (1.0 → 1.1)
-- New features / major changes → increment the first number (1.x → 2.0)
+- **Third number** — a follow-up push later the same day (1.2.0 → 1.2.1)
+- **Second number** — the day's first push: fixes, polish, and features that extend a view
+  that already exists (1.2 → 1.3)
+- **First number** — a new capability large enough to change what the tool is: a new card,
+  a new way of expressing an input, or anything that would make an existing share code
+  decode to a different plan (1.x → 2.0)
+
+The line between the last two is what the tool can answer, not how much code moved.
+v2.0 was income streams gaining a second age basis and v3.0 was the step-up ladder —
+both new questions you could ask it. The ladder's chart-axis toggle and its layered
+income mode took v3.1.0 between them, because they gave an existing card more to say
+rather than adding a card.
 
 Docs-only and CI-only changes don't bump the version.
 

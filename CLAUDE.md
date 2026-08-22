@@ -90,10 +90,13 @@ alternatives, and the failure a line prevents — not restatements of the code. 
 surrounding density; sparser comments read as a regression here.
 
 **Versioning.** `src/version.js` is bumped on every push that changes the app: third
-number for a same-day follow-up, second for the first minor push of a day, first for new
-features. Docs-only and CI-only changes don't bump. The `pre-push` hook blocks a push
-whose tests fail or that leaves the file untouched; `--no-verify` is for a genuine
-non-shipping push.
+number for a same-day follow-up, second for the day's first push — fixes, polish, and
+features that extend a view that already exists — and first only for a new capability
+large enough to change what the tool is (a new card, a new way of expressing an input, a
+share code that would decode to a different plan). **Adding a control to an existing card
+is a second-number change, not a first.** Docs-only and CI-only changes don't bump. The
+`pre-push` hook blocks a push whose tests fail or that leaves the file untouched;
+`--no-verify` is for a genuine non-shipping push.
 
 American English throughout.
 
