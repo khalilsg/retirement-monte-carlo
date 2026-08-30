@@ -28,10 +28,13 @@ let corridorState = null;
 // corridor is a bisection per age, which on a long runway is more work than the
 // whole ladder, and four of them overlaid would be unreadable anyway.
 export function renderCorridor(cfg, tiers, variants, which) {
-  const svg = el("corridor"), host = el("corridor-panel");
+  const svg = el("corridor");
   const active = variants.filter(v => v.on);
-  host.hidden = which < 0;
-  if (which < 0) { corridorState = null; svg.innerHTML = ""; return; }
+  // The card stays on the page even with nothing picked, because the picker lives in
+  // it: hiding the card would hide the only control that un-hides it. Empty state is
+  // a word in the frame instead, which is also how the ladder handles having nothing
+  // to draw.
+  if (which < 0) { empty(svg, "Pick a tier above to draw its corridor."); return; }
 
   const p = readParams(), nSims = currentSims();
   const tier = tiers[which];
@@ -61,6 +64,7 @@ function empty(svg, msg) {
   svg.setAttribute("viewBox", "0 0 760 100");
   const t = svgEl("text", { x: 380, y: 52, "text-anchor": "middle", class: "axis-title" });
   t.textContent = msg; svg.appendChild(t);
+  el("corridor-legend").innerHTML = "";
   el("corridor-note").textContent = "";
   describeChart("corridor", msg);
   renderTable("corridor-table", { caption: msg, cols: ["Age"], rows: [] });

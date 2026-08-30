@@ -18,7 +18,7 @@ import { renderCorridor } from "../charts/corridor.js";
 import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { loadInitial, initScenarios, readScenario } from "./scenarios.js";
-import { initLadder, ladderConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, syncCorridorOptions, renderLadderControls } from "./ladder.js";
+import { initLadder, ladderConfig, corridorConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, syncCorridorOptions, renderLadderControls } from "./ladder.js";
 import { initPrivacy, swapInputs } from "./privacy.js";
 import { initPrompt, syncPromptChrome } from "./prompt.js";
 import { initFooter } from "./footer.js";
@@ -53,10 +53,11 @@ function drawLadder() {
   syncCorridorOptions();
   const cfg = ladderConfig(), tiers = getTiers(), variants = getVariants();
   renderLadder(cfg, tiers, variants);
-  // After the ladder, and only for the tier that was asked for: the corridor is a
-  // bisection per age on top of everything above, so it stays opt-in and one at a
-  // time. See charts/corridor.js.
-  renderCorridor(cfg, tiers, variants, cfg.corridor);
+  // Its own card, but drawn from here: the corridor is solved from a ladder rung, so
+  // it cannot be drawn until that rung has been. Only for the tier that was asked for
+  // — a bisection per age on top of everything above. See charts/corridor.js.
+  const cc = corridorConfig();
+  renderCorridor(cc, tiers, variants, cc.tier);
 }
 
 export function recompute() { recomputeLight(); recomputeHeavy(); }
