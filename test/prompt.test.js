@@ -5,7 +5,7 @@
 // a "no crossing" reported as a bare number would be a lie told at length.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildPrompt, cellPhrase } from "../src/config/prompt.js";
+import { buildPrompt, cellPhrase, fanPhrase } from "../src/config/prompt.js";
 import { PARAM_FIELDS } from "../src/config/parameters.js";
 
 const plan = (over = {}) => ({
@@ -44,6 +44,16 @@ const bundle = (over = {}) => ({
       cells: [
         { solvedFor: "age", status: "solved", value: 57, success: 86.2, lo: 50, hi: 94, sLo: 40, sHi: 99 },
         { solvedFor: "age", status: "all", value: 50, success: 91.0, lo: 50, hi: 94, sLo: 91.0, sHi: 99 },
+      ],
+      // A fan on the rung that crossed, none on the rung that didn't — the pairing
+      // the serializer has to keep straight.
+      fans: [
+        { date: 57, points: [
+          { pct: 0.10, balance: 900000, solvedFor: "age", status: "solved", value: 60, success: 85.4 },
+          { pct: 0.50, balance: 1500000, solvedFor: "age", status: "all", value: 57, lo: 57, sLo: 92.0 },
+          { pct: 0.90, balance: 2400000, solvedFor: "age", status: "all", value: 57, lo: 57, sLo: 98.0 },
+        ] },
+        null,
       ],
     }],
   },
@@ -163,7 +173,61 @@ test("the preamble forbids inventing numbers that aren't in the block", () => {
   const out = buildPrompt(bundle(), false);
   assert.match(out, /use only the numbers in this message/i);
   assert.match(out, /Don't\nestimate it/);
-  assert.match(out, /magnitude isn't in front of you/);
+  // The balance needed at a given age is still genuinely unavailable (that solve is
+  // issue #8), so it stays as the example of what not to invent.
+  assert.match(out, /balance I'd need at some particular age/);
+});
+
+// The prompt once told the model to say the size of a bad draw wasn't computed. It
+// is now, so instruction 4 has to ask for the reading rather than the disclaimer —
+// a prompt that still hedged would talk the model out of a section it can answer.
+test("the failure-fraction section asks for the cost rather than disclaiming it", () => {
+  const out = buildPrompt(bundle(), false);
+  assert.ok(!out.includes("does not yet compute"), "the prompt still disclaims a figure it now ships");
+  assert.ok(!out.includes("magnitude isn't in front of you"));
+  assert.match(out, /What the failure fraction actually costs/);
+  assert.match(out, /low draw/);
+});
+
+// ---------- The low-draw columns ----------
+test("the ladder table gains a low-draw column per scenario, and only where there are fans", () => {
+  const out = buildPrompt(bundle(), false);
+  assert.match(out, /\| Plan as-is — low draw \| Part-time — low draw \|/);
+  // Grouped after the answers, matching the app's own table so the two read alike.
+  const head = out.split("\n").find(l => l.includes("— low draw"));
+  assert.ok(head.indexOf("| Plan as-is |") < head.indexOf("| Plan as-is — low draw |"));
+
+  // No fans anywhere means no columns at all, rather than a row of dashes.
+  const bare = bundle();
+  bare.ladder.rows[0].fans = [null, null];
+  assert.ok(!buildPrompt(bare, false).includes("low draw |"), "empty low-draw columns were printed anyway");
+  assert.ok(!buildPrompt(bare, false).includes("The **low draw** columns"), "explained a column that isn't there");
+});
+
+test("a low draw states the answer and what it costs, and refuses to subtract a non-answer", () => {
+  const money = (x, flow) => "$" + x + (flow ? "" : "");
+  const cell = { solvedFor: "age", status: "solved", value: 57 };
+  const fan = { date: 57, points: [{ pct: 0.10, solvedFor: "age", status: "solved", value: 60, success: 85.4 }] };
+  const got = fanPhrase(cell, fan, money);
+  assert.match(got, /^age 60 /);
+  assert.match(got, /3 years later/);
+
+  // Singular reads as a year, not "1 years".
+  const one = fanPhrase(cell, { points: [{ pct: 0.10, solvedFor: "age", status: "solved", value: 58, success: 85.1 }] }, money);
+  assert.match(one, /1 year later/);
+
+  // Either end not being a figure means there is nothing to subtract — the figure
+  // still prints, the difference doesn't.
+  const capped = { points: [{ pct: 0.10, solvedFor: "age", status: "none", hi: 94, sHi: 61.0 }] };
+  const out = fanPhrase(cell, capped, money);
+  assert.match(out, /never clears it/);
+  assert.ok(!/ years (later|earlier)/.test(out), "subtracted against a non-answer");
+  assert.equal(fanPhrase(cell, null, money), "—", "a missing fan is not a cost of zero");
+
+  // A spend solve reports in dollars a year, in the other direction.
+  const spendCell = { solvedFor: "spend", status: "solved", value: 100000 };
+  const spendFan = { points: [{ pct: 0.10, solvedFor: "spend", status: "solved", value: 78000, success: 85.2 }] };
+  assert.match(fanPhrase(spendCell, spendFan, money), /\$22000\/yr less/);
 });
 
 // A stream dated relative to retirement slides with every age the ladder probes,

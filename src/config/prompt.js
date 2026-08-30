@@ -111,16 +111,40 @@ export function cellPhrase(c, money) {
   return "misses the target even spending nothing (" + c.sLo.toFixed(1) + "%)";
 }
 
+// What a rung becomes on a low arrival, with the difference spelled out. The signed
+// difference is the half that is a decision rather than a fact — "age 47" states
+// something, "three years later" asks something of you — and it is withheld wherever
+// either end isn't a figure, the same discipline cellPhrase keeps above.
+export function fanPhrase(cell, fan, money) {
+  if (!fan || !fan.points.length) return "—";
+  const low = fan.points[0];
+  const base = cellPhrase(low, money);
+  if (low.status !== "solved" || cell.status !== "solved") return base;
+  const d = low.value - cell.value;
+  if (d === 0) return base + " — no change";
+  const mag = Math.abs(d);
+  return base + " — " + (low.solvedFor === "age"
+    ? mag + (mag === 1 ? " year" : " years") + (d > 0 ? " later" : " earlier")
+    : money(mag, true) + "/yr " + (d > 0 ? "more" : "less"));
+}
+
 function ladderBlock(ld, money) {
   if (!ld || !ld.rows.length || !ld.scenarios.length) return ["(no ladder tiers or no scenario switched on)"];
-  const head = ["Tier", "Held fixed", "Solving for"].concat(ld.scenarios.map((v, i) => v.label || "Scenario " + (i + 1)));
+  const names = ld.scenarios.map((v, i) => v.label || "Scenario " + (i + 1));
+  // The low-draw columns are grouped after the answers rather than interleaved, the
+  // same layout the app's own data table uses — someone reading the two side by side
+  // shouldn't have to re-learn the shape.
+  const anyFan = ld.rows.some(r => r.fans && r.fans.some(Boolean));
+  const head = ["Tier", "Held fixed", "Solving for"].concat(names)
+    .concat(anyFan ? names.map(n => n + " — low draw") : []);
   const rows = ld.rows.map((r, i) => {
     const t = r.tier, byAge = t.anchor === "age";
     return [
       t.label || "Tier " + (i + 1),
       byAge ? "age " + t.age : money(t.spend, true) + "/yr",
       byAge ? "the most it could spend" : "the earliest age it could start",
-    ].concat(r.cells.map(c => cellPhrase(c, money)));
+    ].concat(r.cells.map(c => cellPhrase(c, money)))
+     .concat(anyFan ? r.cells.map((c, j) => fanPhrase(c, r.fans && r.fans[j], money)) : []);
   });
   return mdTable(head, rows);
 }
@@ -134,7 +158,7 @@ function mdTable(head, rows) {
 
 // ---------- The whole thing ----------
 // `bundle` is assembled by ui/prompt.js: { version, date, p, nSims, full, tornado,
-// ladder, code }. `normalized` swaps every money figure for its ratio form.
+// ladder, code }. Ladder rows carry their own `fans` (see engine/arrival.js). `normalized` swaps every money figure for its ratio form.
 export function buildPrompt(bundle, normalized) {
   const { p, nSims, full, tornado, ladder, version, date, code } = bundle;
   const money = moneyFmt(p, normalized);
@@ -163,8 +187,8 @@ export function buildPrompt(bundle, normalized) {
     "by the simulator.",
     "",
     "**Ground rule: use only the numbers in this message.** You can't run this model, so anything you'd",
-    "have to compute — a balance I'd need at some age, what a bad draw would cost in years or spending,",
-    "a success rate under assumptions I haven't given you — is not available to you. Where a question",
+    "have to compute — the balance I'd need at some particular age, a success rate under assumptions I",
+    "haven't given you, a rung I haven't listed — is not available to you. Where a question",
     "below needs a figure that isn't here, say what's missing and what it would take to get it. Don't",
     "estimate it. A confident invented number is the one failure mode that makes this whole exercise",
     "worse than useless.",
@@ -177,10 +201,11 @@ export function buildPrompt(bundle, normalized) {
     "3. **How much this number is worth.** A single success probability is a poor thing to steer by:",
     "   it's guaranteed to move as the years resolve, and the drift figure below says how far. Explain",
     "   what that implies about treating the headline as a target versus as one reading.",
-    "4. **What the failure fraction actually is.** Not ruin — a mid-course correction seen coming. Say",
-    "   what form it would take for this plan (working longer, spending less, or leaning on income).",
-    "   The simulator does not yet compute the *size* of that correction, so describe its shape and say",
-    "   plainly that the magnitude isn't in front of you.",
+    "4. **What the failure fraction actually costs.** Not ruin — a mid-course correction you would see",
+    "   coming, and the ladder below now prices it: each rung carries a *low draw* figure, which is what",
+    "   that rung becomes if I reach its date with a 10th-percentile balance. Read those as the cost of a",
+    "   bad run, in years or in spending. Say which rungs absorb it and which don't, and what that means",
+    "   for which rung is actually the safe one to aim at.",
     "5. **Which assumption is carrying the plan.** Read the sensitivity ranking below — what it means",
     "   that this particular assumption tops it, and which entries are ones I control versus ones I'm",
     "   just exposed to.",
@@ -229,6 +254,12 @@ export function buildPrompt(bundle, normalized) {
     "gives the highest spend. The columns are alternative assumptions about income after stopping.",
     "");
   push(...ladderBlock(ladder, money));
+  if (ladder && ladder.rows && ladder.rows.some(r => r.fans && r.fans.some(Boolean))) push("",
+    "The **low draw** columns re-solve each rung as if I reach its date with a 10th-percentile balance — the",
+    "answer a bad run would leave me with, rather than today's central forecast. Two things about them. They are",
+    "one-sided on an age solve: I cannot stop earlier than the date the rung already names, so a good draw leaves",
+    "the answer where it is and only a bad one moves it later. And a rung with no crossing has no date to arrive",
+    "at, so it has no low draw either — those read as a dash, not as a zero cost.");
 
   push("", "## Which assumption moves the answer most", "",
     "Each row moves one assumption across a plausible range with everything else held at the plan above,",
