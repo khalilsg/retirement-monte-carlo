@@ -22,6 +22,7 @@ import { ensureIndex } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { solveLadder } from "../engine/ladder.js";
 import { solveArrivals } from "../engine/arrival.js";
+import { solveCorridor, corridorCrossing } from "../engine/corridor.js";
 import { tornadoData } from "../charts/tornado.js";
 import { encodeScenario } from "../config/codec.js";
 import { buildPrompt } from "../config/prompt.js";
@@ -46,6 +47,18 @@ function gather(normalized) {
   // reading. It does roughly double the time behind the button — hence the toast.
   const fans = solveArrivals(p, nSims, cfg, ladder);
   ladder.rows.forEach((row, r) => { row.fans = fans[r]; });
+  // The corridor rides along only for the tier the card is actually showing one for.
+  // Unlike the fans this is not cheap enough to do unconditionally — it is a
+  // bisection per age per tier — and unlike the fans it is a single-rung view by
+  // nature, so there is no "all of them" to fall back on.
+  const tiers = getTiers(), variants = getVariants(), active = variants.filter(v => v.on);
+  let corridor = null;
+  if (cfg.corridor >= 0 && tiers[cfg.corridor] && active.length) {
+    const tier = tiers[cfg.corridor];
+    const one = solveLadder(p, nSims, cfg, [tier], [active[0]]);
+    const c = solveCorridor(p, nSims, cfg, tier, active[0], one.rows[0].cells[0]);
+    if (c) corridor = { tier: tier.label, scenario: active[0].label, c, crossing: corridorCrossing(c) };
+  }
   return {
     version: VERSION,
     date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
@@ -53,6 +66,7 @@ function gather(normalized) {
     full: simFull(p, nSims),
     tornado: tornadoData(),
     ladder: Object.assign({ cfg }, ladder),
+    corridor,
     // The code decodes straight back to the real amounts, so it rides along only
     // with the variant that was already carrying them.
     code: normalized ? "" : encodeScenario(readScenario()),

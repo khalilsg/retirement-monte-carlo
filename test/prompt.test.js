@@ -61,6 +61,30 @@ const bundle = (over = {}) => ({
   ...over.bundle,
 });
 
+// A corridor as engine/corridor.js returns one, with the three outcomes represented:
+// a solved requirement, an age carried entirely by contributions, and one no balance
+// in range clears.
+function fixtureCorridor() {
+  return {
+    tier: "Bare-bones", scenario: "Plan as-is",
+    crossing: { status: "crosses", age: 51 },
+    c: {
+      date: 57, spend: 40000,
+      points: [
+        { age: 50, status: "all", value: 0, lo: 0 },
+        { age: 51, status: "solved", value: 640000 },
+        { age: 57, status: "solved", value: 980000 },
+      ],
+      bands: {
+        ages: [50, 51, 57],
+        p10: [900000, 910000, 950000], p25: [900000, 950000, 1100000],
+        p50: [900000, 990000, 1400000], p75: [900000, 1040000, 1750000],
+        p90: [900000, 1100000, 2200000],
+      },
+    },
+  };
+}
+
 // ---------- The privacy promise ----------
 // The normalized variant is offered as safe to paste where the dollars one isn't,
 // so the one thing it must not do is emit a dollar amount. A "$" anywhere in the
@@ -85,6 +109,32 @@ test("the dollars variant does carry amounts, and the normalized one drops the c
   // ride along with the variant that withheld them.
   assert.ok(buildPrompt(b, false).includes("ABC123"));
   assert.ok(!buildPrompt(b, true).includes("ABC123"), "normalized prompt carried the scenario code");
+});
+
+// ---------- The balance track ----------
+test("the corridor block prints its three outcomes rather than a number for each", () => {
+  const out = buildPrompt(bundle({ bundle: { corridor: fixtureCorridor() } }), false);
+  assert.match(out, /\| Age \| Balance needed \| Projected 10th \|/);
+  // An age carried by contributions alone needs no balance, which is not the same as
+  // needing zero — printing "$0" would read as an answer.
+  assert.match(out, /\| 50 \| any balance \|/);
+  assert.match(out, /\| 51 \| \$640,000 \|/);
+  assert.match(out, /stays above that line through age 51/);
+  // The reason the reading watches a lower band has to travel with the figures, or
+  // the model reaches for the median and concludes nothing.
+  assert.match(out, /median clears it near enough by construction/);
+});
+
+test("no corridor selected means no balance-track section at all", () => {
+  const out = buildPrompt(bundle(), false);
+  assert.ok(!out.includes("## The balance track"), "printed an empty balance-track section");
+  assert.ok(!out.includes("any balance"));
+});
+
+test("the corridor is stated in ratios under the normalized variant", () => {
+  const out = buildPrompt(bundle({ bundle: { corridor: fixtureCorridor() } }), true);
+  assert.ok(!out.includes("$"), "the corridor block leaked a dollar amount");
+  assert.match(out, /## The balance track/);
 });
 
 // ---------- The registry promise ----------
@@ -173,9 +223,22 @@ test("the preamble forbids inventing numbers that aren't in the block", () => {
   const out = buildPrompt(bundle(), false);
   assert.match(out, /use only the numbers in this message/i);
   assert.match(out, /Don't\nestimate it/);
-  // The balance needed at a given age is still genuinely unavailable (that solve is
-  // issue #8), so it stays as the example of what not to invent.
-  assert.match(out, /balance I'd need at some particular age/);
+  // Deliberately NOT asserting the specific examples the rule gives. An earlier
+  // version of this test pinned one, and it broke the moment the engine learned to
+  // compute it — which is the same brittleness the rule itself keeps falling into.
+  // What has to hold is that the rule names things the app cannot produce at all,
+  // rather than things it merely hasn't produced yet.
+  assert.match(out, /is not available to you/);
+});
+
+// The prompt has twice shipped a claim that a later feature made false. It cannot be
+// checked in general, but the specific trap — disclaiming a figure that is in the
+// very same message — is worth a guard.
+test("the prompt never says a figure is unavailable while shipping it", () => {
+  const out = buildPrompt(bundle({ bundle: { corridor: fixtureCorridor() } }), false);
+  assert.match(out, /## The balance track for the Bare-bones tier/);
+  assert.ok(!/balance I'd need at some particular age/.test(out),
+    "the ground rule disclaims a balance-at-age while the corridor block supplies one");
 });
 
 // The prompt once told the model to say the size of a bad draw wasn't computed. It
