@@ -59,6 +59,7 @@ export function ladderConfig() {
     target: Math.max(1, Math.min(100, parseNum(el("ld-target").value) || 85)),
     maxSpend: Math.max(1000, parseNum(inputVal(el("ld-max")))),
     fullRange: el("ld-domain").value === "full",
+    fan: el("ld-fan").value !== "off",
   };
 }
 
@@ -368,6 +369,13 @@ export function initLadder(onChange) {
   // redrawLadder() repaints the answers already in hand, and reports false if
   // there are none yet, in which case the full path is the right one anyway.
   el("ld-domain").addEventListener("change", () => {
+    if (!redrawLadder(ladderConfig())) scheduleLadder();
+  });
+  // Same idiom, and for the same reason it can't be assumed: hiding the arrival
+  // range is a repaint of figures already in hand, but showing it needs a bisection
+  // per quantile per cell that was never run. redrawLadder() knows which case it is
+  // and reports false when the solve is unavoidable.
+  el("ld-fan").addEventListener("change", () => {
     if (!redrawLadder(ladderConfig())) scheduleLadder();
   });
 }

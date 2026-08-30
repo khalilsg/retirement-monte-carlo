@@ -13,6 +13,11 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Taxes** — effective-rate gross-up on withdrawals
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
 - **Step-up ladder** — retirement as a series of lifestyle tiers rather than one yes/no number: per tier, the earliest age you could stop at a given spend, or the most you could spend at a given age, solved by bisecting the simulation against a fixed target success rate — and compared side by side across named income scenarios
+- **Arrival range** — each rung is a forecast of a *future* forecast, so it also carries the range its own answer
+  lands in once the market has had its say: a band behind the dumbbell spanning where the rung resolves across
+  the balances you might actually reach its date with, and a *low draw* column saying what a bad run would
+  cost in years or in dollars a year — the mid-course correction behind the failure probability, rather than
+  the probability itself
 - **Analysis prompt** — a button that serializes the whole plan, the ladder and the sensitivity ranking
   into a ready-to-paste prompt asking Claude for the written reading the charts can't give: what the
   headline is worth as a thing to steer by, what the failure fraction costs, which assumption is
@@ -39,6 +44,7 @@ src/
     model.js          timeline phases, allocation glide, income-stream flattening (both age bases)
     simulate.js       simSuccess / simFull / simSequence
     ladder.js         bisects simSuccess for the step-up ladder's age / spend answers
+    arrival.js        re-solves each rung at its own date, across the arrival distribution
   config/
     parameters.js     the parameter registry — single source of truth for every
                       tunable (DOM binding, live label, scenario codec, sweep meta)
@@ -61,11 +67,11 @@ tools/                dev scripts (browser-check.mjs — end-to-end via Playwrig
 The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
 
 ```bash
-node --test test/*.test.js                        # 71 tests, about a second
+node --test test/*.test.js                        # 81 tests, about a second
 node --test --test-reporter=spec test/*.test.js   # readable output when something fails
 ```
 
-`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. It also covers the analysis prompt's serializer — that the normalized variant contains no dollar amount anywhere (including the units baked into a stream's own sensitivity label, which is where a real leak was found), that the plan block is derived from the registry rather than hand-listed, and that the ladder's three outcomes stay distinguishable once they're prose. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
+`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. It also covers the analysis prompt's serializer — that the normalized variant contains no dollar amount anywhere (including the units baked into a stream's own sensitivity label, which is where a real leak was found), that the plan block is derived from the registry rather than hand-listed, and that the ladder's three outcomes stay distinguishable once they're prose. For the arrival range it pins the property the whole cheap method rests on — that success is monotone in the balance you start from, checked under guardrails, a glide path and both income-stream bases at once — along with the rule that a rung with no crossing gets no fan rather than a fabricated one. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
 
 The control layer and the charts need a real DOM, so those are checked end-to-end against the actual page:
 
@@ -132,6 +138,30 @@ almost always true and occasionally isn't — a retirement-relative stream moves
 guardrails reset off the balance on the day you stop — so where the curve doubles back, the search finds *a* crossing
 rather than provably the earliest. Common random numbers keep it deterministic, so the same plan always gives the
 same answer; the sensitivity sweep over retirement age is the place to check the shape if a rung looks wrong.
+
+**The arrival range.** A rung says "earliest age 44" as of today, and that is a forecast of a forecast: the balance
+you actually reach 44 with spans a wide range, and the rung's answer moves with it. Switch **Arrival range** on and each
+rung gains a band spanning where its answer lands across that distribution, plus a **low draw** column in the table
+saying what reaching the date with a 10th-percentile balance would cost — three years later, or twenty-odd thousand a
+year less. That figure is the honest content of a failure probability: not ruin, but a mid-course correction you can
+see coming and act on.
+
+The whole thing is cheap because success is monotone in the balance you start from, so a quantile of the arrival
+balance is a quantile of the answer and one solve per quantile replaces a Monte Carlo nested inside a Monte Carlo.
+Two things follow from how it is asked. The band is **one-sided on an age panel** — you cannot stop earlier than the
+date you asked about, so a good draw pins to the dot and only a bad one moves. And a rung with no crossing gets **no
+band at all**: "already, at 55" has nothing to arrive at and "not by 94" never arrives.
+
+One caveat, measured rather than assumed. Standing at the date and re-simulating treats the years after it as
+independent of the years before, which is exactly true under independent-year sampling and slightly optimistic in the
+left tail under blocks — arriving low correlates with sitting inside a bad run that has further to go. Measured against
+the true conditional rate over 80,000 paths, the effect attributable to blocks is about 1.5 points at the 5th
+percentile, in the direction of making a bad draw look marginally better than it is. Small enough to note; the
+reasoning and the numbers are in `src/engine/arrival.js`.
+
+Solving the range roughly doubles the cost of drawing the ladder, so it has its own **Hide (faster)** setting — worth
+reaching for on a twelve-tier, four-scenario ladder at 10,000 simulations. Hiding it is a repaint of figures already in
+hand; showing it needs a solve that was never run.
 
 Tiers and scenarios travel in the share code, but only once you've edited them — an untouched ladder re-derives its
 rungs from the plan's own spending, so it reconstructs itself at the far end and costs nothing. Editing it roughly

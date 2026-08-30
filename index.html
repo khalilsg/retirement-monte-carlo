@@ -427,6 +427,10 @@
             <option value="fit">Fit to answers</option>
             <option value="full">Show full search range</option>
           </select></div>
+          <div class="field"><label for="ld-fan">Arrival range</label><select id="ld-fan">
+            <option value="on" selected>Show</option>
+            <option value="off">Hide (faster)</option>
+          </select></div>
         </div>
         <p class="hint" id="ld-note"></p>
 
@@ -494,6 +498,17 @@
             misses the target even spending nothing, so the shortfall is somewhere other than lifestyle. Those markers
             sit at whichever end of the axis they ran off, which is usually past the fitted range — so read the figure
             beside them, not the position.</p>
+          <p><b>The pale band</b> behind each rung is where that rung's answer actually lands. The dot is today's
+            forecast; the band re-solves the rung at the 10th, 50th and 90th percentile of the balance you might
+            reach its date with, so it spans what the market can still do between now and then. Hover a rung for all
+            three figures, or read the <b>low draw</b> columns in the data table, which give the 10th-percentile answer
+            and what it costs against the dot — <em>+3 yrs</em>, or so many thousand a year less. That cost is the
+            honest content of a failure probability: not ruin, but a mid-course correction you would see coming.</p>
+          <p>Two things follow from how the question is asked. On an age panel the band is <b>one-sided</b> — you
+            cannot stop earlier than the date you asked about, so a good draw sits on the dot and only a bad one moves
+            it right. And a rung with <b>no crossing gets no band</b>: <em>"already, at 55"</em> has nothing to arrive
+            at, and <em>"not by 94"</em> never arrives. Solving the band roughly doubles the work of drawing the
+            ladder, so <b>Arrival range</b> above can switch it off on a large one.</p>
           <p><b>One caveat on the age search.</b> It assumes retiring later doesn't make things worse, which is almost
             always true but not guaranteed: a retirement-relative income stream slides along with each age being tried,
             and guardrails reset off the balance on the day you stop. Where the relationship doubles back, the search

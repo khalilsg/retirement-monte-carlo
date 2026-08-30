@@ -133,7 +133,7 @@ const ladderRows = () => page.$$eval("#ladder-table tbody tr",
 const seeded = await ladderRows();
 eq(JSON.stringify(seeded.map(r => r[0])), JSON.stringify(["Bare-bones", "Necessities", "Comfortable"]), "the ladder seeds a rung per tier");
 eq(await page.inputValue(".ldtier:nth-of-type(2) .lt-spend"), "60,000", "an untouched ladder seeds off the plan's spending");
-eq((await page.$$("#ld-legend .li")).length, 2, "both seeded scenarios reach the legend");
+eq((await page.$$("#ld-legend .li-scen")).length, 2, "both seeded scenarios reach the legend");
 eq(JSON.stringify(seeded.map(r => r[2])), JSON.stringify(["Earliest age", "Earliest age", "Earliest age"]), "spend-anchored tiers solve for an age");
 
 // An untouched ladder must not lengthen the code — that is what keeps the feature
@@ -177,7 +177,7 @@ await settle(900);
 eq((await page.$$(".ldscen:nth-of-type(2) .ldstream")).length, 0, "and the stream's x removes it again");
 
 // --- the legend names each drawn scenario, beside the chart it labels ---
-const legend = await page.$$eval("#ld-legend .li", ls => ls.map(l => l.textContent.trim()));
+const legend = await page.$$eval("#ld-legend .li-scen", ls => ls.map(l => l.textContent.trim()));
 eq(JSON.stringify(legend), JSON.stringify(["As planned", "Full stop"]), "the legend names every drawn scenario");
 eq(await page.$eval("#ld-legend", n => n.nextElementSibling.id), "ladder", "and sits directly above the chart, not up in the card head");
 
@@ -279,6 +279,42 @@ ok(swapMs < 120, `and repaints the existing solve rather than re-running it (${s
 await page.selectOption("#ld-domain", "fit");
 await settle(600);
 ok(await axisEnd() < 90, "and switching back re-fits to the answers");
+
+// --- the arrival range ---
+// engine/arrival.js is covered in Node (test/arrival.test.js). What needs a real
+// page is that the band reaches the chart at all, that the table carries the figure
+// behind it, and that the toggle takes the cheap path in the one direction where a
+// cheap path exists.
+const bands = () => page.$$eval("#ladder rect[rx]", rs => rs.length);
+const tableText = () => page.$eval("#ladder-table", t => t.textContent);
+
+await settle(600);
+ok(await bands() > 0, `the arrival range draws a band behind the rungs (${await bands()})`);
+ok((await tableText()).includes("low draw"), "and the table gains a low-draw column per scenario");
+// A band is the largest shape on the chart and has no other label. Nothing else on
+// the card would tell a first-time reader what it is.
+ok((await page.$$("#ld-legend .li-band")).length === 1, "and the legend says what the band is");
+ok((await page.$eval("#ladder-card", n => n.textContent)).includes("no crossing gets no band"),
+  "and \"How to read this\" explains the band, including when there isn't one");
+
+// Hiding is a repaint of figures already in hand, so it must not re-solve. Same
+// budget and same reasoning as the axis toggle above: the 200ms typing debounce sits
+// in front of the solve path, so anything under it proves the solve was skipped.
+const tHide = Date.now();
+await page.selectOption("#ld-fan", "off");
+await page.waitForFunction(() => document.querySelectorAll("#ladder rect[rx]").length === 0,
+  null, { timeout: 4000 }).catch(() => {});
+const hideMs = Date.now() - tHide;
+eq(await bands(), 0, "hiding the range takes the bands off the chart");
+ok(!(await tableText()).includes("low draw"), "and the figure out of the table");
+ok(hideMs < 120, `and repaints rather than re-solving to do it (${hideMs}ms)`);
+
+// Showing it again cannot be a repaint — those figures were never solved for — so
+// this exercises the fall-through to the full solve.
+await page.selectOption("#ld-fan", "on");
+await settle(2600);
+ok(await bands() > 0, "showing it again re-solves and the bands come back");
+ok((await tableText()).includes("low draw"), "with the table figure back too");
 
 // --- the analysis prompt ---
 // The Node suite covers the serializer itself (test/prompt.test.js). What it cannot
