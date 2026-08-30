@@ -448,6 +448,30 @@
 
         <div class="legend ladder-legend" id="ld-legend"></div>
         <svg id="ladder" viewBox="0 0 760 300" role="img" aria-label="Step-up ladder of retirement age or spending by lifestyle tier"></svg>
+
+        <div class="prompt-copy">
+          <h3 class="ladder-h">Get a written reading of this plan</h3>
+          <p class="hint">The charts say what your success probability <b>is</b>. They can&#39;t say whether it&#39;s the
+            right thing to steer by, what the failure fraction would actually cost you, or which of your assumptions is
+            doing the most work. These build a prompt carrying everything computed above &mdash; the plan, the ladder,
+            the sensitivity ranking &mdash; and ask Claude for the reading. The numbers come from here; only the
+            interpretation comes from the model.</p>
+          <p class="hint prompt-warn"><b>Read this before you paste.</b> <b>With amounts</b> puts your real balance,
+            spending and income into a third-party service, where it may be stored or logged. <b>Ratios only</b> says
+            everything as multiples of your balance and percentages of it, the way private mode renders the page: the
+            whole analysis works in those terms and none of it needs dollars. Even so, the ratios variant still carries
+            your ages, your retirement date and the shape of your income &mdash; much less than the first, but not
+            nothing.</p>
+          <div class="scenario-row">
+            <button type="button" class="btn small" id="copy-prompt">Copy prompt &mdash; with amounts</button>
+            <button type="button" class="btn small" id="copy-prompt-rel">Copy prompt &mdash; ratios only</button>
+          </div>
+          <details class="scen-more" id="prompt-more">
+            <summary>Show the prompt text</summary>
+            <textarea id="prompt-out" class="prompt-out" readonly rows="10" aria-label="The generated analysis prompt"></textarea>
+          </details>
+        </div>
+
         <details class="method">
           <summary>How to read this</summary>
           <p>Every rung fixes your <b>target success probability</b> and solves for one number. A tier anchored on

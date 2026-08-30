@@ -280,6 +280,50 @@ await page.selectOption("#ld-domain", "fit");
 await settle(600);
 ok(await axisEnd() < 90, "and switching back re-fits to the answers");
 
+// --- the analysis prompt ---
+// The Node suite covers the serializer itself (test/prompt.test.js). What it cannot
+// reach is the wiring: which button builds which variant, and whether private mode
+// actually shuts the dollars one down. Both of those are the privacy promise, and
+// both would pass every unit test while being exactly backwards.
+await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
+const clip = () => page.evaluate(() => navigator.clipboard.readText());
+
+await page.click("#copy-prompt");
+await settle(1200);
+const dollars = await clip();
+ok(dollars.includes("## The step-up ladder"), "the dollars prompt carries the ladder");
+ok(/\$[\d,]+/.test(dollars), "and states amounts in dollars");
+ok(/Scenario code for this plan/.test(dollars), "and carries the scenario code to reproduce it");
+
+await page.click("#copy-prompt-rel");
+await settle(1200);
+const ratios = await clip();
+ok(ratios.includes("## The step-up ladder"), "the ratios prompt carries the same ladder");
+// The whole claim the second button makes about itself. A wiring mistake that sent
+// both buttons to the same variant leaves every other assertion here passing.
+ok(!ratios.includes("$"), "and contains no dollar amount anywhere");
+ok(/×/.test(ratios) && /Amounts here are deliberately relative/.test(ratios), "stating balances as multiples instead");
+ok(!/Scenario code for this plan/.test(ratios), "and drops the code, which would decode back to the amounts");
+
+// The warning has to be in the flow and legible, not parked in a title attribute
+// where nobody who has already decided to click will ever see it.
+eq(await page.$eval(".prompt-warn", n => n.offsetParent !== null && n.textContent.includes("third-party service")), true,
+  "the privacy warning is visible text, not a tooltip");
+
+// Private mode is a statement that real numbers aren't leaving the page. The
+// dollars variant has to go with it, exactly as Copy code does; the ratios one is
+// the whole reason there are two buttons, so it has to stay.
+await page.click("#priv-toggle");
+await settle(1500);
+eq(await page.$eval("#copy-prompt", b => b.disabled), true, "private mode disables the dollars prompt");
+eq(await page.$eval("#copy-prompt-rel", b => b.disabled), false, "and leaves the ratios prompt available");
+await page.click("#copy-prompt-rel");
+await settle(1200);
+ok(!(await clip()).includes("$"), "which still copies, still without amounts");
+await page.click("#priv-toggle");
+await settle(1200);
+eq(await page.$eval("#copy-prompt", b => b.disabled), false, "and leaving private mode restores it");
+
 // --- typing an age into a slider's box still toggles the panels it gates ---
 // initValueInputs steers the range by assigning range.value, which fires no input
 // event — so the range's own listener, the only other caller of toggleModePanels,

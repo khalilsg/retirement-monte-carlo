@@ -13,6 +13,13 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Taxes** — effective-rate gross-up on withdrawals
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
 - **Step-up ladder** — retirement as a series of lifestyle tiers rather than one yes/no number: per tier, the earliest age you could stop at a given spend, or the most you could spend at a given age, solved by bisecting the simulation against a fixed target success rate — and compared side by side across named income scenarios
+- **Analysis prompt** — a button that serializes the whole plan, the ladder and the sensitivity ranking
+  into a ready-to-paste prompt asking Claude for the written reading the charts can't give: what the
+  headline is worth as a thing to steer by, what the failure fraction costs, which assumption is
+  carrying the plan. The app computes and the model interprets — a chat model can't run this engine,
+  so every figure is shipped precomputed and the prompt forbids inventing the rest. Offered in a
+  normalized variant that states everything as ratios, for a reading you can get without pasting real
+  amounts into a third party
 - **Scenarios** — presets, save-as-default, shareable links (`?s=…`) that open straight into someone else's numbers, and a `?demo` view that opens the built-in example instead of your saved default
 - **Monte Carlo confidence interval** on the headline result
 - **Private mode** — hides every dollar amount for screen sharing: balances render as a multiple (×) of your balance today, annual amounts as a percentage of it, so charts and ratios stay fully readable
@@ -37,11 +44,14 @@ src/
                       tunable (DOM binding, live label, scenario codec, sweep meta)
     presets.js        built-in defaults + named presets
     codec.js          scenario <-> compact URL-safe share code
+    prompt.js         the analysis prompt — pure serializer over everything computed
   charts/             one module per visualization (fan, sweep, tornado, heat,
                       sequence, ladder) + shared svg.js helpers
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
                       privacy.js — private-mode toggle, input masking, leak guards
                       ladder.js — the step-up ladder's tiers, scenarios, and editors
+                      prompt.js — gathers the analysis bundle and owns its buttons
+                      toast.js — the status line and the clipboard write behind it
   version.js          the version string shown in the footer
 test/                 node --test suite over the engine, config, and codec
 tools/                dev scripts (browser-check.mjs — end-to-end via Playwright)
@@ -51,11 +61,11 @@ tools/                dev scripts (browser-check.mjs — end-to-end via Playwrig
 The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
 
 ```bash
-node --test test/*.test.js                        # 60 tests, about a second
+node --test test/*.test.js                        # 71 tests, about a second
 node --test --test-reporter=spec test/*.test.js   # readable output when something fails
 ```
 
-`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
+`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. It also covers the analysis prompt's serializer — that the normalized variant contains no dollar amount anywhere (including the units baked into a stream's own sensitivity label, which is where a real leak was found), that the plan block is derived from the registry rather than hand-listed, and that the ladder's three outcomes stay distinguishable once they're prose. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
 
 The control layer and the charts need a real DOM, so those are checked end-to-end against the actual page:
 
@@ -127,6 +137,26 @@ Tiers and scenarios travel in the share code, but only once you've edited them �
 rungs from the plan's own spending, so it reconstructs itself at the far end and costs nothing. Editing it roughly
 doubles a typical code (132 characters to about 335 for the bridge preset), which is the price of a comparison you
 can actually send someone.
+
+### Analysis prompt
+Under the ladder chart, two buttons build a ready-to-paste prompt asking Claude for a written reading of the loaded
+plan — where it sits against your target, what the ladder actually says, what the failure fraction would cost you,
+which assumption is carrying it.
+
+The division of labor is the design. A chat model cannot run this engine: it cannot bisect `simSuccess`, and asked
+for a figure it has no way to reach it will produce one anyway. So the prompt carries every number precomputed —
+the plan (derived from the parameter registry, so a tunable added later cannot silently drop out of it), the solved
+ladder with its no-crossing cases spelled out in words, the tornado's ranking, both the Monte Carlo confidence
+interval and the expected drift of the headline before the outcome resolves — and asks only for the interpretation.
+A ground rule at the top forbids estimating anything that isn't in the block, which is what covers the sections that
+don't exist yet as much as the ones that do.
+
+**On privacy, since this pastes into a third party.** *With amounts* sends your real balance, spending and income,
+where it may be stored or logged. *Ratios only* renders everything the way private mode renders the page — balances
+as a multiple of your balance today, annual flows as a percentage of it — and drops the share code, which would
+decode straight back to the figures it just withheld. The whole analysis works in those terms; nothing in it needs
+dollars. It is not anonymous, though: the ratio form still carries your ages, your retirement date and the shape of
+your income. Private mode disables the amounts variant outright, the same way it disables `Copy code`.
 
 ### Demo view
 `Save as my default` means the bare URL opens with your own numbers, which is the wrong first screen when you're showing the tool to someone else. Adding `demo` to the address opens the built-in example instead:

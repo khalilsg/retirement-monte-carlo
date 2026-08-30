@@ -8,7 +8,10 @@ import { SWEEP_META, streamMeta, sweepFmt } from "../config/parameters.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { simSuccess } from "../engine/simulate.js";
 
-function tornadoData() {
+// Exported for the analysis prompt (ui/prompt.js), which ships the same ranking as
+// text rather than re-deriving it: two answers to "which assumption matters most"
+// that could disagree would be worse than one.
+export function tornadoData() {
   const p = readParams(), n = currentSims(), base = simSuccess(p, n), rows = [];
   const evalRow = (meta, lo, hi) => {
     if (meta.min != null) { lo = Math.max(meta.min, lo); hi = Math.max(meta.min, hi); }
