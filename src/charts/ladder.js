@@ -108,7 +108,7 @@ export function renderLadder(cfg, tiers, variants) {
   if (!tiers.length || !active.length) {
     lastSolve = null;
     svg.innerHTML = "";
-    renderLegend(active, false);
+    renderLegend(active, false, cfg);
     const msg = !tiers.length ? "Add a tier to build the ladder." : "Switch on a scenario to compare.";
     empty(svg, msg);
     return;
@@ -146,7 +146,7 @@ function paint(cfg) {
     { key: "age", title: "Earliest retirement age", rows: out.rows.filter(r => r.cells[0].solvedFor === "age") },
     { key: "spend", title: "Maximum annual spend", rows: out.rows.filter(r => r.cells[0].solvedFor === "spend") },
   ].filter(pn => pn.rows.length);
-  renderLegend(active, draw(svg, panels, active, cfg));
+  renderLegend(active, draw(svg, panels, active, cfg), cfg);
   describeLadder(panels, active, cfg);
   buildLadderTable(panels, active, cfg);
 }
@@ -161,10 +161,19 @@ function empty(svg, msg) {
 
 // The legend is markup rather than SVG so it reuses the fan chart's .legend styling
 // and stays readable at any text size without competing for viewBox room.
-function renderLegend(active, agreed) {
+function renderLegend(active, agreed, cfg) {
+  // li-scen marks the entries that name a scenario, as against the two explanatory
+  // ones below. Without it anything counting legend entries is really counting
+  // "however many things the legend happens to hold", which changes whenever a new
+  // shape needs explaining.
   const items = active.map((v, i) =>
-    `<span class="li"><span class="swatch" style="background:${SCEN_COLORS[i]}"></span>${escapeHtml(v.label)}</span>`);
+    `<span class="li li-scen"><span class="swatch" style="background:${SCEN_COLORS[i]}"></span>${escapeHtml(v.label)}</span>`);
   if (agreed) items.push('<span class="li li-agree"><span class="swatch" style="background:var(--muted)"></span>scenarios agree</span>');
+  // The band is a whole visual element with no other label on the card. Without
+  // this the legend explains the dots and silently leaves the largest shape on the
+  // chart to be guessed at.
+  if (cfg && cfg.fan) items.push('<span class="li li-band"><span class="swatch" style="background:' + SCEN_COLORS[0] +
+    ';opacity:.18"></span>where it lands on arrival</span>');
   el("ld-legend").innerHTML = items.join("");
 }
 
