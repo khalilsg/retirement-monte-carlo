@@ -13,6 +13,7 @@ import {
 import { getLadder, setLadder, isTouched } from "./ladder.js";
 import { recompute } from "./orchestrate.js";
 import { clearMasks, refreshMasks } from "./privacy.js";
+import { toast, copyText } from "./toast.js";
 
 // Read the current form into a compact scenario object (short keys, whole percents).
 export function readScenario() {
@@ -67,9 +68,9 @@ function shareLink(code) {
   return location.origin + location.pathname + "?s=" + code;
 }
 
-let toastT = null;
-function toast(msg) { const t = el("toast"); t.textContent = msg; t.classList.add("show"); if (toastT) clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2800); }
-async function copyText(txt, okMsg) { try { await navigator.clipboard.writeText(txt); toast(okMsg); } catch (e) { el("scen-code").value = txt; el("scen-more").open = true; toast("Copy it from the box below."); } }
+// Failing to reach the clipboard, park the text in the code box and open it.
+function intoCodeBox(txt) { el("scen-code").value = txt; el("scen-more").open = true; toast("Copy it from the box below."); }
+const copy = (txt, okMsg) => copyText(txt, okMsg, intoCodeBox);
 
 // This page's query and hash, then the framing page's — when the tool is embedded,
 // the link's parameters land on the outer URL rather than on this document's.
@@ -126,10 +127,10 @@ export function initScenarios() {
     if (isPrivate()) { toast("Turn off private mode to share your numbers."); return; }
     const code = encodeScenario(readScenario()), link = shareLink(code);
     el("scen-code").value = link || code;
-    if (!link) { el("scen-more").open = true; copyText(code, "No link from a local file — code copied instead."); return; }
-    copyText(link, "Link copied — it opens with these numbers.");
+    if (!link) { el("scen-more").open = true; copy(code, "No link from a local file — code copied instead."); return; }
+    copy(link, "Link copied — it opens with these numbers.");
   });
-  el("copy-code").addEventListener("click", () => { if (isPrivate()) { toast("Turn off private mode to share your code."); return; } const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copyText(code, "Code copied — also shown below, ready to send."); });
+  el("copy-code").addEventListener("click", () => { if (isPrivate()) { toast("Turn off private mode to share your code."); return; } const code = encodeScenario(readScenario()); el("scen-code").value = code; el("scen-more").open = true; copy(code, "Code copied — also shown below, ready to send."); });
   el("load-code").addEventListener("click", () => { const s = (el("scen-code").value || "").trim(); if (!s) { toast("Paste a link or code first."); return; } const o = decodeScenario(extractCode(s)); if (o) { applyScenario(o); toast("Scenario loaded."); } else toast("Couldn't read that link or code."); });
   el("reset-default").addEventListener("click", () => { try { localStorage.removeItem("mc_default"); } catch (e) {} if (/^https?:$/.test(location.protocol)) history.replaceState(null, "", location.pathname); applyScenario(BUILTIN); toast("Reset to built-in defaults."); });
 }

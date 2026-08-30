@@ -6,6 +6,12 @@
 // assumption — its sweep / tornado / heatmap metadata. Adding a new tunable means
 // adding one entry here plus its HTML control; readParams, syncLabels, the scenario
 // codec, and the sensitivity tools all derive from this list automatically.
+//
+// `promptLabel` / `promptWhen` fill the two gaps the analysis prompt (config/prompt.js)
+// would otherwise have: a plain-English name for an entry with no `sweep` block to
+// borrow one from, and the relevance test that a `sweep.when` already carries for
+// everything else. An entry missing a name is printed under its bare param key rather
+// than dropped, so the omission shows up in the output instead of silently shrinking it.
 import { fmtMoney, fmtFull, parseNum, commafy, isPrivate } from "../format.js";
 
 // How a control's four representations relate for a given value "kind":
@@ -26,7 +32,7 @@ const REPR = {
 // The registry. Order matters only in that the subsequence of entries carrying a
 // `sweep` block defines the order options appear in the sweep/axis dropdowns.
 const RAW_PARAMS = [
-  { param: "curAge", el: "cur-age", repr: "int", scen: "ca", label: { id: "cur-age-v" } },
+  { param: "curAge", el: "cur-age", repr: "int", scen: "ca", label: { id: "cur-age-v" }, promptLabel: "Current age" },
 
   { param: "spend", el: "spend", repr: "money", scen: "spend", label: { id: "spend-v", fmt: v => fmtMoney(v, true) },
     sweep: { label: "Annual spending", kind: "money", flow: true, apply: (pp, v) => pp.spend = v, cur: p => p.spend, min: 0, range: p => [Math.round(p.spend * .5 / 1000) * 1000, Math.round(p.spend * 1.6 / 1000) * 1000], tw: p => [p.spend * .85, p.spend * 1.15] } },
@@ -49,7 +55,7 @@ const RAW_PARAMS = [
   { param: "tax", el: "tax", repr: "pct", scen: "tx", label: { id: "tax-v", fmt: v => Math.round(v * 100) },
     sweep: { label: "Effective tax (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.tax = v / 100, cur: p => p.tax * 100, min: 0, max: 60, range: () => [0, 35], tw: p => [p.tax * 100 - 5, p.tax * 100 + 5] } },
 
-  { param: "spendMode", el: "spend-mode", repr: "select", scen: "sm", opts: ["fixed", "guardrails"] },
+  { param: "spendMode", el: "spend-mode", repr: "select", scen: "sm", opts: ["fixed", "guardrails"], promptLabel: "Spending rule" },
 
   { param: "stock", el: "stock", repr: "pct", scen: "stk", label: { id: "stock-v" },
     sweep: { label: "Stock allocation (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.stock = v / 100, cur: p => p.stock * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "fixed", tw: p => [p.stock * 100 - 15, p.stock * 100 + 15] } },
@@ -60,7 +66,7 @@ const RAW_PARAMS = [
   { param: "glideEnd", el: "glide-end", repr: "pct", scen: "gev", label: { id: "glide-end-v" },
     sweep: { label: "Ending stock (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.glideEnd = v / 100, cur: p => p.glideEnd * 100, min: 0, max: 100, range: () => [0, 100], when: p => p.allocMode === "glide", tw: p => [p.glideEnd * 100 - 15, p.glideEnd * 100 + 15] } },
 
-  { param: "allocMode", el: "alloc-mode", repr: "select", scen: "am", opts: ["fixed", "glide"] },
+  { param: "allocMode", el: "alloc-mode", repr: "select", scen: "am", opts: ["fixed", "glide"], promptLabel: "Allocation rule" },
 
   { param: "gFloor", el: "g-floor", repr: "pct", scen: "gf", label: { id: "g-floor-v" },
     sweep: { label: "Spending floor (%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gFloor = v / 100, cur: p => p.gFloor * 100, min: 30, max: 100, range: () => [50, 100], when: p => p.spendMode === "guardrails", tw: p => [p.gFloor * 100 - 10, p.gFloor * 100 + 10] } },
@@ -71,9 +77,10 @@ const RAW_PARAMS = [
   { param: "gBand", el: "g-band", repr: "pct", scen: "gb", label: { id: "g-band-v" },
     sweep: { label: "Guardrail band (±%)", kind: "pctInt", int: true, apply: (pp, v) => pp.gBand = v / 100, cur: p => p.gBand * 100, min: 1, max: 60, range: () => [5, 40], when: p => p.spendMode === "guardrails" } },
 
-  { param: "gStep", el: "g-step", repr: "pct", scen: "gs", label: { id: "g-step-v" } },
+  { param: "gStep", el: "g-step", repr: "pct", scen: "gs", label: { id: "g-step-v" },
+    promptLabel: "Guardrail cut/raise step (%)", promptWhen: p => p.spendMode === "guardrails" },
 
-  { param: "sampleMode", el: "sample-mode", repr: "select", scen: "smp", opts: ["iid", "blocks"] },
+  { param: "sampleMode", el: "sample-mode", repr: "select", scen: "smp", opts: ["iid", "blocks"], promptLabel: "Return sampling" },
 
   // blockLen only takes effect under "blocks" sampling; the label mirrors the raw
   // slider (handled in the UI), so it carries no generic label here.

@@ -16,9 +16,10 @@ import { renderHeat } from "../charts/heat.js";
 import { renderLadder } from "../charts/ladder.js";
 import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
-import { loadInitial, initScenarios } from "./scenarios.js";
+import { loadInitial, initScenarios, readScenario } from "./scenarios.js";
 import { initLadder, ladderConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, renderLadderControls } from "./ladder.js";
 import { initPrivacy, swapInputs } from "./privacy.js";
+import { initPrompt, syncPromptChrome } from "./prompt.js";
 import { initFooter } from "./footer.js";
 
 // Light path: the headline success number + balance fan. Cheap enough to run live
@@ -140,9 +141,12 @@ export function init() {
   initScenarios();
   // Before loadInitial, so a shared code carrying a ladder has one to overwrite.
   initLadder(debouncedLadder);
+  // readScenario is handed over rather than imported by ui/prompt.js, which would
+  // otherwise join the scenarios <-> orchestrate import cycle for one function.
+  initPrompt(readScenario);
   // Toggling privacy changes how every figure renders, including the income-stream
   // option labels, so the dropdowns are rebuilt alongside the recompute.
-  initPrivacy(() => { buildSweepOptions(); buildHeatOptions(); renderLadderControls(); recompute(); });
+  initPrivacy(() => { buildSweepOptions(); buildHeatOptions(); syncPromptChrome(); renderLadderControls(); recompute(); });
   renderStreams();
   toggleModePanels();
   buildSweepOptions();

@@ -21,10 +21,14 @@ export function setPrivacyUnit(start, spend) {
 }
 export function unitLabel() { return unitIsSpend ? "your annual spending" : "your balance today"; }
 
-// A private figure: `flow` amounts (per-year) read as a percent of the unit,
-// balances as a multiple of it. `full` asks for the higher-precision variant.
-function relative(x, flow, full) {
-  const neg = x < 0; x = Math.abs(x) / unit;
+// A figure relative to an explicit reference amount: `flow` amounts (per-year) read
+// as a percent of it, balances as a multiple. `full` asks for the higher-precision
+// variant. Parameterized by the unit rather than reading the module's, because the
+// analysis prompt (config/prompt.js) emits this form on demand while private mode
+// is off — normalizing is an argument there, not a mode, so nothing it does can
+// leak back into how the page itself is rendering.
+export function asRatio(x, flow, unit, full) {
+  const neg = x < 0; x = Math.abs(x) / (unit || 1);
   if (x === 0) return flow ? "0%" : "0";
   let s;
   if (flow) {
@@ -35,6 +39,9 @@ function relative(x, flow, full) {
   }
   return (neg ? "−" : "") + s;
 }
+
+// The same, against the reference amount private mode is currently anchored to.
+function relative(x, flow, full) { return asRatio(x, flow, unit, full); }
 
 // Compact money for chart labels and stat tiles: $1.5M, $70k, $420.
 export function fmtMoney(x, flow) {
