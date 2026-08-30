@@ -288,11 +288,18 @@ ok(await axisEnd() < 90, "and switching back re-fits to the answers");
 const bands = () => page.$$eval("#ladder rect[rx]", rs => rs.length);
 const tableText = () => page.$eval("#ladder-table", t => t.textContent);
 
+// Off by default: it roughly doubles the ladder's solve and is more chart ink than
+// most readings want, so it is opt-in. Pinning the default here is the point — it is
+// a deliberate choice, not the incidental state of a <select>.
 await settle(600);
-ok(await bands() > 0, `the arrival range draws a band behind the rungs (${await bands()})`);
+eq(await bands(), 0, "the arrival range is off until asked for");
+ok(!(await tableText()).includes("low draw"), "and the table carries no low-draw column while it is");
+eq(await page.$eval("#ld-fan", e => e.value), "off", "the control agrees that it is off");
+
+await page.selectOption("#ld-fan", "on");
+await settle(2600);
+ok(await bands() > 0, `switching it on draws a band behind the rungs (${await bands()})`);
 ok((await tableText()).includes("low draw"), "and the table gains a low-draw column per scenario");
-// A band is the largest shape on the chart and has no other label. Nothing else on
-// the card would tell a first-time reader what it is.
 ok((await page.$$("#ld-legend .li-band")).length === 1, "and the legend says what the band is");
 ok((await page.$eval("#ladder-card", n => n.textContent)).includes("no crossing gets no band"),
   "and \"How to read this\" explains the band, including when there isn't one");
@@ -305,16 +312,9 @@ await page.selectOption("#ld-fan", "off");
 await page.waitForFunction(() => document.querySelectorAll("#ladder rect[rx]").length === 0,
   null, { timeout: 4000 }).catch(() => {});
 const hideMs = Date.now() - tHide;
-eq(await bands(), 0, "hiding the range takes the bands off the chart");
+eq(await bands(), 0, "hiding it again takes the bands off the chart");
 ok(!(await tableText()).includes("low draw"), "and the figure out of the table");
 ok(hideMs < 120, `and repaints rather than re-solving to do it (${hideMs}ms)`);
-
-// Showing it again cannot be a repaint — those figures were never solved for — so
-// this exercises the fall-through to the full solve.
-await page.selectOption("#ld-fan", "on");
-await settle(2600);
-ok(await bands() > 0, "showing it again re-solves and the bands come back");
-ok((await tableText()).includes("low draw"), "with the table figure back too");
 
 // --- the analysis prompt ---
 // The Node suite covers the serializer itself (test/prompt.test.js). What it cannot
@@ -330,6 +330,11 @@ const dollars = await clip();
 ok(dollars.includes("## The step-up ladder"), "the dollars prompt carries the ladder");
 ok(/\$[\d,]+/.test(dollars), "and states amounts in dollars");
 ok(/Scenario code for this plan/.test(dollars), "and carries the scenario code to reproduce it");
+// The chart's Arrival range is off at this point. The prompt is a text artifact
+// built once on a click, so hiding the band to unclutter the chart must not delete a
+// section of the written analysis.
+ok(/low draw/.test(dollars), "and carries the low-draw figures even with the band hidden");
+ok(!/does not yet compute/.test(dollars), "and no longer disclaims a figure it now ships");
 
 await page.click("#copy-prompt-rel");
 await settle(1200);

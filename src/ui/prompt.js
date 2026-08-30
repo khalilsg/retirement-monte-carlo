@@ -21,6 +21,7 @@ import { ladderConfig, getTiers, getVariants } from "./ladder.js";
 import { ensureIndex } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { solveLadder } from "../engine/ladder.js";
+import { solveArrivals } from "../engine/arrival.js";
 import { tornadoData } from "../charts/tornado.js";
 import { encodeScenario } from "../config/codec.js";
 import { buildPrompt } from "../config/prompt.js";
@@ -36,13 +37,22 @@ function gather(normalized) {
   const p = readParams(), nSims = currentSims();
   ensureIndex(nSims, p.blockLen);
   const cfg = ladderConfig();
+  const ladder = solveLadder(p, nSims, cfg, getTiers(), getVariants());
+  // The arrival fans ride along whatever the ladder card's own Arrival range setting
+  // says, and deliberately so. That setting is about chart ink and about a solve
+  // that reruns on every settle; this is a text artifact built once, on a click, and
+  // what a bad draw costs is one of the things the analysis is for. Turning the band
+  // off because it crowds the chart shouldn't quietly delete a section of the
+  // reading. It does roughly double the time behind the button — hence the toast.
+  const fans = solveArrivals(p, nSims, cfg, ladder);
+  ladder.rows.forEach((row, r) => { row.fans = fans[r]; });
   return {
     version: VERSION,
     date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
     p, nSims,
     full: simFull(p, nSims),
     tornado: tornadoData(),
-    ladder: Object.assign({ cfg }, solveLadder(p, nSims, cfg, getTiers(), getVariants())),
+    ladder: Object.assign({ cfg }, ladder),
     // The code decodes straight back to the real amounts, so it rides along only
     // with the variant that was already carrying them.
     code: normalized ? "" : encodeScenario(readScenario()),

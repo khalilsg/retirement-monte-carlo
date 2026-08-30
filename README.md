@@ -13,7 +13,7 @@ An interactive retirement simulator. It bootstraps **real annual market history 
 - **Taxes** — effective-rate gross-up on withdrawals
 - **Analysis** — sensitivity sweep, two-parameter success-surface heatmap, a tornado chart ranking your biggest levers, and sequence-of-returns risk attribution
 - **Step-up ladder** — retirement as a series of lifestyle tiers rather than one yes/no number: per tier, the earliest age you could stop at a given spend, or the most you could spend at a given age, solved by bisecting the simulation against a fixed target success rate — and compared side by side across named income scenarios
-- **Arrival range** — each rung is a forecast of a *future* forecast, so it also carries the range its own answer
+- **Arrival range** (opt-in) — each rung is a forecast of a *future* forecast, so it can also carry the range its own answer
   lands in once the market has had its say: a band behind the dumbbell spanning where the rung resolves across
   the balances you might actually reach its date with, and a *low draw* column saying what a bad run would
   cost in years or in dollars a year — the mid-course correction behind the failure probability, rather than
@@ -67,7 +67,7 @@ tools/                dev scripts (browser-check.mjs — end-to-end via Playwrig
 The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
 
 ```bash
-node --test test/*.test.js                        # 81 tests, about a second
+node --test test/*.test.js                        # 84 tests, about a second
 node --test --test-reporter=spec test/*.test.js   # readable output when something fails
 ```
 
@@ -140,7 +140,7 @@ rather than provably the earliest. Common random numbers keep it deterministic, 
 same answer; the sensitivity sweep over retirement age is the place to check the shape if a rung looks wrong.
 
 **The arrival range.** A rung says "earliest age 44" as of today, and that is a forecast of a forecast: the balance
-you actually reach 44 with spans a wide range, and the rung's answer moves with it. Switch **Arrival range** on and each
+you actually reach 44 with spans a wide range, and the rung's answer moves with it. Switch **Arrival range** to *Show* and each
 rung gains a band spanning where its answer lands across that distribution, plus a **low draw** column in the table
 saying what reaching the date with a 10th-percentile balance would cost — three years later, or twenty-odd thousand a
 year less. That figure is the honest content of a failure probability: not ruin, but a mid-course correction you can
@@ -159,9 +159,13 @@ the true conditional rate over 80,000 paths, the effect attributable to blocks i
 percentile, in the direction of making a bad draw look marginally better than it is. Small enough to note; the
 reasoning and the numbers are in `src/engine/arrival.js`.
 
-Solving the range roughly doubles the cost of drawing the ladder, so it has its own **Hide (faster)** setting — worth
-reaching for on a twelve-tier, four-scenario ladder at 10,000 simulations. Hiding it is a repaint of figures already in
-hand; showing it needs a solve that was never run.
+Solving the range roughly doubles the cost of drawing the ladder, and it is a good deal of extra ink on a chart whose
+point is the gap between scenarios — so **Arrival range** is set to *Hide* until you ask for it. Hiding it again is a
+repaint of figures already in hand; showing it needs a solve that was never run.
+
+The analysis prompt carries these figures either way. That setting is about chart ink and about a solve that re-runs on
+every settle; the prompt is a text artifact built once, on a click, where nothing competes for space — so turning the
+band off to unclutter the chart should not quietly delete a section of the written reading.
 
 Tiers and scenarios travel in the share code, but only once you've edited them — an untouched ladder re-derives its
 rungs from the plan's own spending, so it reconstructs itself at the far end and costs nothing. Editing it roughly
