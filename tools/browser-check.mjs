@@ -324,11 +324,15 @@ const clip = () => page.evaluate(() => navigator.clipboard.readText());
 // the panel: that it stays out of the way until a tier is picked, that its tier list
 // tracks the tiers themselves, and that picking one actually draws two series rather
 // than an empty frame.
-eq(await page.$eval("#corridor-panel", n => n.hidden), true, "the corridor panel is hidden until a tier is picked");
+// The card stays on the page with nothing picked, because the picker is inside it —
+// hiding it would hide the only control that brings it back.
+eq(await page.$eval("#corridor-card", n => n.hidden), false, "the corridor card keeps its picker reachable");
+ok((await page.$eval("#corridor", n => n.textContent)).includes("Pick a tier"), "and says so until a tier is picked");
+eq(await page.$$eval("#corridor path", ps => ps.length), 0, "with nothing drawn yet");
 
 // The options are the tier list, rebuilt on every draw rather than hooked into each
 // of the five places a tier can change — so a rename has to show up here.
-const corridorOpts = () => page.$$eval("#ld-corridor option", os => os.map(o => o.textContent));
+const corridorOpts = () => page.$$eval("#cor-tier option", os => os.map(o => o.textContent));
 eq(JSON.stringify(await corridorOpts()), JSON.stringify(["Hide", "Bare-bones", "Necessities", "Comfortable"]),
   "the corridor offers one option per tier");
 await page.fill(".ldtier:nth-of-type(2) .lt-label", "Renamed");
@@ -337,9 +341,9 @@ ok((await corridorOpts()).includes("Renamed"), "and follows a tier being renamed
 await page.fill(".ldtier:nth-of-type(2) .lt-label", "Necessities");
 await settle(1400);
 
-await page.selectOption("#ld-corridor", "2");
+await page.selectOption("#cor-tier", "2");
 await settle(6000);
-eq(await page.$eval("#corridor-panel", n => n.hidden), false, "picking a tier opens the panel");
+ok(await page.$$eval("#corridor path", ps => ps.length) > 0, "picking a tier draws the corridor");
 // Two series, not one: the corridor line is only a reading against the bands behind
 // it, and a panel with just one of them drawn is not the chart.
 ok(await page.$$eval("#corridor path[stroke-dasharray]", ps => ps.length) > 0, "the corridor line is drawn");
@@ -350,8 +354,8 @@ ok(await page.$$eval("#corridor-table tbody tr", r => r.length) > 2, "and the da
 // the date it is a corridor *for*.
 const cNote = await page.$eval("#corridor-note", n => n.textContent);
 ok(/Holding .* retiring at \d+/.test(cNote), `the note names what is held (${cNote.slice(0, 60)}…)`);
-ok(/on track|assumes the plan keeps running/.test(await page.$eval("#corridor-panel", n => n.textContent)),
-  "and the panel says the line assumes the plan keeps running");
+ok(/on track|assumes the plan keeps running/.test(await page.$eval("#corridor-card", n => n.textContent)),
+  "and the card says the line assumes the plan keeps running");
 
 // A selected corridor reaches the analysis prompt too. Shipping the corridor without
 // this would put the prompt's ground rule back into the state PR #15 fixed: naming a
@@ -363,9 +367,13 @@ ok(/## The balance track for/.test(withCorridor), "a selected corridor reaches t
 ok(!/balance I'd need at some particular age/.test(withCorridor),
   "and the prompt does not disclaim a balance-at-age while supplying one");
 
-await page.selectOption("#ld-corridor", "-1");
+eq(await page.$eval("#ladder-card", n => n.nextElementSibling.id), "corridor-card",
+  "and the corridor card sits directly under the ladder it is derived from");
+
+await page.selectOption("#cor-tier", "-1");
 await settle(2200);
-eq(await page.$eval("#corridor-panel", n => n.hidden), true, "and Hide puts it away again");
+eq(await page.$$eval("#corridor path", ps => ps.length), 0, "and Hide clears it again");
+ok((await page.$eval("#corridor", n => n.textContent)).includes("Pick a tier"), "back to the empty state");
 
 // --- the analysis prompt ---
 // The Node suite covers the serializer itself (test/prompt.test.js). What it cannot

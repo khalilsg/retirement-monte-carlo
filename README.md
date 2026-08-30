@@ -180,9 +180,15 @@ can actually send someone.
 
 ### Glide corridor
 Every other view answers "how likely is this?". The corridor answers **"am I above the line?"**, which is the same
-question in a form you can check without re-running anything. Pick a tier under **Glide corridor** and it solves, for
-each age between now and that rung's date, the balance that would hold the tier at your target rate — then draws your
-projected percentile bands behind it.
+question in a form you can check without re-running anything. Pick a tier in the **Glide corridor** card and it
+solves, for each age between now and that rung's date, the balance that would hold the tier at your target rate — then
+draws your projected percentile bands behind it.
+
+It has its own card, directly under the Step-up ladder. It is derived from a ladder rung and reads only in that
+context, so it sits adjacent — but it asks a different question (*am I on track?* rather than *when could I stop?*)
+and answers it on different axes, balance against age, the same shape as **Balance over time** rather than a dumbbell.
+The tiers and the target success rate come from the ladder above; the corridor has to solve to the same target, or the
+two cards would be answering to different bars without saying so.
 
 **What the line assumes decides what it means.** It is solved with the plan still running: contributions continue from
 each age through to the date. So it reads *am I on track?*, not *could I coast from here?*. On a plan that saves

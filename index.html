@@ -431,9 +431,6 @@
             <option value="off" selected>Hide</option>
             <option value="on">Show (slower)</option>
           </select></div>
-          <div class="field"><label for="ld-corridor">Glide corridor</label><select id="ld-corridor">
-            <option value="-1" selected>Hide</option>
-          </select></div>
         </div>
         <p class="hint" id="ld-note"></p>
 
@@ -455,21 +452,6 @@
 
         <div class="legend ladder-legend" id="ld-legend"></div>
         <svg id="ladder" viewBox="0 0 760 300" role="img" aria-label="Step-up ladder of retirement age or spending by lifestyle tier"></svg>
-
-        <div class="corridor-panel" id="corridor-panel" hidden>
-          <h3 class="ladder-h">Glide corridor</h3>
-          <p class="hint">A rung's answer is a probability, and a probability is an awkward thing to steer by — it is
-            guaranteed to move, so watching it year to year tells you little. This turns it into something you can
-            check: the <b>balance you'd need at each age</b> between now and that rung's date to keep it alive, drawn
-            over the balance you're actually projected to reach. The reading is <em>am I above the line?</em></p>
-          <p class="hint"><b>It assumes the plan keeps running</b> — contributions continue to the date — so the line
-            means "am I on track?", not "could I coast from here?". On a plan that saves heavily those are very
-            different, and the line sits far below your balance early on for exactly that reason.</p>
-          <div class="legend" id="corridor-legend"></div>
-          <svg id="corridor" viewBox="0 0 760 320" role="img" aria-label="Balance needed at each age to hold a lifestyle tier, against the balance projected"></svg>
-          <p class="hint" id="corridor-note"></p>
-          <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="corridor-table"></table></div></details>
-        </div>
 
         <div class="prompt-copy">
           <h3 class="ladder-h">Get a written reading of this plan</h3>
@@ -536,6 +518,56 @@
             check the shape if a rung looks wrong.</p>
         </details>
         <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="ladder-table"></table></div></details>
+      </section>
+
+      <!-- The corridor is derived from a ladder rung and reads only in that context,
+           so it sits directly under the ladder. It is its own card rather than a
+           panel inside that one because it asks a different question (am I on track?
+           rather than when could I stop?) and answers it on different axes — balance
+           against age, the same shape as the fan chart, not a dumbbell. -->
+      <section class="card chart-card" id="corridor-card" aria-labelledby="cor-h">
+        <div class="chart-head">
+          <div><h2 class="card-title" id="cor-h">Glide corridor</h2><p class="card-sub">A rung's answer is a
+            probability, and a probability is an awkward thing to steer by — it is guaranteed to move, so watching it
+            year to year tells you little. This turns it into something you can check: the <b>balance you'd need at
+            each age</b> between now and that rung's date to keep it alive, drawn over the balance you're actually
+            projected to reach. The reading is <em>am I above the line?</em></p></div>
+        </div>
+
+        <div class="ladder-controls">
+          <div class="field"><label for="cor-tier">Tier</label><select id="cor-tier">
+            <option value="-1" selected>Hide</option>
+          </select></div>
+        </div>
+        <p class="hint">The tiers are the ones on the <b>Step-up ladder</b> above, and the corridor holds that card's
+          <b>target success</b> — it has to, or the two would be solving to different bars and quietly disagreeing.
+          One tier at a time, against the first scenario switched on there: this is a single-rung view, and the
+          comparison between scenarios is what the ladder itself is for.</p>
+        <p class="hint"><b>It assumes the plan keeps running</b> — contributions continue to the date — so the line
+          means "am I on track?", not "could I coast from here?". On a plan that saves heavily those are very
+          different, and the line sits far below your balance early on for exactly that reason.</p>
+
+        <div class="legend" id="corridor-legend"></div>
+        <svg id="corridor" viewBox="0 0 760 320" role="img" aria-label="Balance needed at each age to hold a lifestyle tier, against the balance projected"></svg>
+        <p class="hint" id="corridor-note"></p>
+        <details class="method">
+          <summary>How to read this</summary>
+          <p>The dashed line is the <b>balance that would hold this tier</b> at the target rate if you were standing at
+            that age today — solved by bisecting the simulation on the starting balance, the same engine as everything
+            else. Behind it are the percentile bands for where your balance is actually projected to go. Above the
+            line is on track; below it is not.</p>
+          <p>The reading watches the <b>10th percentile</b>, not the median. A rung is defined as the point where the
+            plan hits its target, so the median clears its own corridor very nearly by construction — it would report
+            "above" for any rung the ladder could solve, which is no news. The lower band is where the content is: the
+            age at which a bad run stops being something to ride out and starts being something to act on.</p>
+          <p>The <b>vertical axis is fitted</b> to these two series rather than anchored at zero. The whole reading is
+            the distance between lines that sit close together, and a zero-based axis flattens it to nothing — but a
+            balance chart that starts partway up is also how a small difference gets sold as a large one, so the axis
+            label states where it begins and the data table carries the unscaled figures.</p>
+          <p>A rung with <b>no crossing gets no corridor</b>: there is no date to march toward. Solving one is a
+            bisection per age on top of the whole ladder above, which is why it is off until you pick a tier.</p>
+        </details>
+        <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="corridor-table"></table></div></details>
       </section>
 
       <details class="method">

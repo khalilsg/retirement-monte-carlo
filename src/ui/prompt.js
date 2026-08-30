@@ -17,7 +17,7 @@
 import { el } from "../dom.js";
 import { isPrivate } from "../format.js";
 import { readParams, currentSims } from "./controls.js";
-import { ladderConfig, getTiers, getVariants } from "./ladder.js";
+import { ladderConfig, corridorConfig, getTiers, getVariants } from "./ladder.js";
 import { ensureIndex } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { solveLadder } from "../engine/ladder.js";
@@ -53,8 +53,9 @@ function gather(normalized) {
   // nature, so there is no "all of them" to fall back on.
   const tiers = getTiers(), variants = getVariants(), active = variants.filter(v => v.on);
   let corridor = null;
-  if (cfg.corridor >= 0 && tiers[cfg.corridor] && active.length) {
-    const tier = tiers[cfg.corridor];
+  const cc = corridorConfig();
+  if (cc.tier >= 0 && tiers[cc.tier] && active.length) {
+    const tier = tiers[cc.tier];
     const one = solveLadder(p, nSims, cfg, [tier], [active[0]]);
     const c = solveCorridor(p, nSims, cfg, tier, active[0], one.rows[0].cells[0]);
     if (c) corridor = { tier: tier.label, scenario: active[0].label, c, crossing: corridorCrossing(c) };

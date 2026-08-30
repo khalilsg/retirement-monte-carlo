@@ -60,8 +60,16 @@ export function ladderConfig() {
     maxSpend: Math.max(1000, parseNum(inputVal(el("ld-max")))),
     fullRange: el("ld-domain").value === "full",
     fan: el("ld-fan").value !== "off",
-    corridor: +el("ld-corridor").value,
   };
+}
+
+// The corridor's own settings. Deliberately built ON TOP of ladderConfig rather than
+// beside it: the corridor has to solve to the same target success rate the ladder
+// solved its rungs at, or the two cards would be answering to different bars and
+// disagreeing without saying why. Only the chosen tier is the corridor's own, and its
+// card says where the rest comes from.
+export function corridorConfig() {
+  return Object.assign(ladderConfig(), { tier: +el("cor-tier").value });
 }
 
 // The whole ladder in one object, for the scenario codec.
@@ -91,7 +99,7 @@ export function setLadder(L) {
 // naming a tier that no longer exists. Selection is held by index, and falls back to
 // Hide when the list shrinks past it.
 export function syncCorridorOptions() {
-  const sel = el("ld-corridor"), want = getTiers();
+  const sel = el("cor-tier"), want = getTiers();
   const have = [...sel.options].slice(1).map(o => o.textContent).join("\u0000");
   const names = want.map((t, i) => tierName(t, i));
   if (have === names.join("\u0000")) return;
@@ -396,8 +404,10 @@ export function initLadder(onChange) {
     if (!redrawLadder(ladderConfig())) scheduleLadder();
   });
   // The corridor is solved on demand for the tier that is picked, so there is never
-  // anything in hand to repaint — every change here is a fresh solve.
-  el("ld-corridor").addEventListener("change", scheduleLadder);
+  // anything in hand to repaint — every change here is a fresh solve. It lives on its
+  // own card now, but the draw path is the ladder's: the corridor is solved from a
+  // ladder rung, so it can only be redrawn once that has been.
+  el("cor-tier").addEventListener("change", scheduleLadder);
 }
 
 // The card's one-line summary of what it's solving against, kept in step with the
