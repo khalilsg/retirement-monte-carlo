@@ -280,6 +280,37 @@ await page.selectOption("#ld-domain", "fit");
 await settle(600);
 ok(await axisEnd() < 90, "and switching back re-fits to the answers");
 
+// --- the arrival range ---
+// engine/arrival.js is covered in Node (test/arrival.test.js). What needs a real
+// page is that the band reaches the chart at all, that the table carries the figure
+// behind it, and that the toggle takes the cheap path in the one direction where a
+// cheap path exists.
+const bands = () => page.$$eval("#ladder rect[rx]", rs => rs.length);
+const tableText = () => page.$eval("#ladder-table", t => t.textContent);
+
+await settle(600);
+ok(await bands() > 0, `the arrival range draws a band behind the rungs (${await bands()})`);
+ok((await tableText()).includes("low draw"), "and the table gains a low-draw column per scenario");
+
+// Hiding is a repaint of figures already in hand, so it must not re-solve. Same
+// budget and same reasoning as the axis toggle above: the 200ms typing debounce sits
+// in front of the solve path, so anything under it proves the solve was skipped.
+const tHide = Date.now();
+await page.selectOption("#ld-fan", "off");
+await page.waitForFunction(() => document.querySelectorAll("#ladder rect[rx]").length === 0,
+  null, { timeout: 4000 }).catch(() => {});
+const hideMs = Date.now() - tHide;
+eq(await bands(), 0, "hiding the range takes the bands off the chart");
+ok(!(await tableText()).includes("low draw"), "and the figure out of the table");
+ok(hideMs < 120, `and repaints rather than re-solving to do it (${hideMs}ms)`);
+
+// Showing it again cannot be a repaint — those figures were never solved for — so
+// this exercises the fall-through to the full solve.
+await page.selectOption("#ld-fan", "on");
+await settle(2600);
+ok(await bands() > 0, "showing it again re-solves and the bands come back");
+ok((await tableText()).includes("low draw"), "with the table figure back too");
+
 // --- the analysis prompt ---
 // The Node suite covers the serializer itself (test/prompt.test.js). What it cannot
 // reach is the wiring: which button builds which variant, and whether private mode

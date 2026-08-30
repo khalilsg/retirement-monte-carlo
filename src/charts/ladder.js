@@ -12,6 +12,7 @@ import { svgEl, tooltip, placeTooltip, attachReadout, textScale } from "./svg.js
 import { renderTable, describeChart } from "./table.js";
 import { readParams, currentSims } from "../ui/controls.js";
 import { solveLadder } from "../engine/ladder.js";
+import { solveArrivals, fanCost, FAN_PCTS } from "../engine/arrival.js";
 
 // One colour per comparison scenario, in the order they're defined. The first two
 // are the tornado chart's pair, so a two-scenario ladder reads as the same family.
@@ -45,6 +46,37 @@ function cellWhy(c, target) {
   return c.status === "all"
     ? "the search cap is what's binding, not the plan"
     : "misses " + target + "% even spending nothing";
+}
+
+// What a rung's answer becomes if you reach its date with a low balance — its own
+// column per scenario rather than appended to the answer it qualifies. Appending
+// read acceptably but made one cell carry two figures, which a screen reader runs
+// together and which stops the answer column being a plain figure. The columns are
+// grouped after the answers rather than interleaved so the answer columns keep their
+// positions whether or not the range is switched on.
+//
+// The low draw is the end worth tabulating. A rung whose date was chosen so that
+// today's forecast just clears the target will, by the tower property, clear it on
+// roughly half the arrivals — so the median and high ends collapse onto the date
+// itself and say little. The 10th percentile is where the decision content is: it is
+// the mid-course correction, in years or in dollars a year. The tooltip carries all
+// three quantiles for anyone who wants the shape.
+function fanCell(cell, fan, full, panelKey) {
+  const cost = fanCost(cell, fan, FAN_PCTS[0]);
+  if (!cost) return "—";
+  // cellText already carries the three tagged outcomes, so a low draw that clears
+  // from the first age searched, or never clears at all, says so in its own words
+  // instead of being flattened to a number that would read as an answer.
+  const fig = cellText(cost.pt, full);
+  // The signed difference is the actionable half — "47" is a fact, "+3 yrs" is the
+  // decision. Only where both ends are real figures to subtract, the same rule the
+  // Gap column already follows.
+  if (cost.delta == null) return fig;
+  if (cost.delta === 0) return fig + " (no change)";
+  const mag = Math.abs(cost.delta), sign = cost.delta > 0 ? "+" : "−";
+  return fig + " (" + (panelKey === "age"
+    ? sign + mag + (mag === 1 ? " yr" : " yrs")
+    : sign + (full ? fmtFull : fmtMoney)(mag, true)) + ")";
 }
 
 let ladderState = null;
@@ -81,7 +113,13 @@ export function renderLadder(cfg, tiers, variants) {
     empty(svg, msg);
     return;
   }
-  lastSolve = { out: solveLadder(p, nSims, cfg, tiers, active), active };
+  const out = solveLadder(p, nSims, cfg, tiers, active);
+  // The fans hang off their own rows so they survive the panel filter in paint().
+  // Solved only when asked for: each one is a bisection per quantile per cell, which
+  // roughly doubles what is already the most expensive thing on the settle path.
+  const fans = cfg.fan ? solveArrivals(p, nSims, cfg, out) : null;
+  out.rows.forEach((row, r) => { row.fans = fans ? fans[r] : null; });
+  lastSolve = { out, active, hasFans: !!fans };
   paint(cfg);
 }
 
@@ -91,6 +129,10 @@ export function renderLadder(cfg, tiers, variants) {
 // than leave the chart untouched.
 export function redrawLadder(cfg) {
   if (!lastSolve) return false;
+  // Switching the arrival range ON needs figures that were never solved for, so it
+  // falls through to the full path. Switching it OFF does not — the fans are already
+  // in hand and simply stop being drawn, which is a repaint like the axis select.
+  if (cfg.fan && !lastSolve.hasFans) return false;
   paint(cfg);
   return true;
 }
@@ -182,6 +224,27 @@ function draw(svg, panels, active, cfg) {
       nm.textContent = row.tier.label; svg.appendChild(nm);
       const xs = row.cells.map(c => xOf(c.value));
       const x0 = Math.min(...xs), x1 = Math.max(...xs);
+      // The arrival range, behind everything else: where this rung's answer actually
+      // lands once the market has had its say between now and the date. Drawn per
+      // scenario in that scenario's own colour, because the gap between scenarios is
+      // what the chart is for and a single merged band would hide it.
+      //
+      // xOf clamps, so a fan running off the fitted domain stops at the edge instead
+      // of stretching it — the domain is fitted to the answers on purpose (a rung
+      // whose bad draw never recovers would otherwise pin the axis to the search
+      // bound and flatten every gap on the chart).
+      if (cfg.fan) row.cells.forEach((c, i) => {
+        const f = row.fans && row.fans[i];
+        if (!f) return;
+        const fx = f.points.map(o => xOf(o.value));
+        const a = Math.min(...fx), b = Math.max(...fx);
+        // Narrower than the dot it sits under is not a range, it's a smudge.
+        if (b - a < 3 * sc) return;
+        svg.appendChild(svgEl("rect", {
+          x: a, y: cy - 5 * sc, width: b - a, height: 10 * sc, rx: 5 * sc,
+          fill: SCEN_COLORS[i], opacity: 0.18,
+        }));
+      });
       // The connector is the finding: how far the scenarios' answers sit apart.
       if (x1 - x0 > 1) svg.appendChild(svgEl("line", { x1: x0, y1: cy, x2: x1, y2: cy, stroke: "var(--edge)", "stroke-width": 3 * sc, "stroke-linecap": "round" }));
       // Scenarios that reach the same answer land on the same pixel, and the last
@@ -309,12 +372,24 @@ function attachLadderHover() {
       tt.innerHTML = `<div class="tt-t">${escapeHtml(row.tier.label)} — ${escapeHtml(anchored)}</div>` +
         row.cells.map((c, i) =>
           `<span style="color:${SCEN_COLORS[i]}">■</span> ${escapeHtml(st.active[i].label)}: ` +
-          `<b>${escapeHtml(cellText(c, false))}</b><br><span style="opacity:.7">${escapeHtml(cellWhy(c, st.cfg.target))}</span>`
+          `<b>${escapeHtml(cellText(c, false))}</b><br><span style="opacity:.7">${escapeHtml(cellWhy(c, st.cfg.target))}</span>` +
+          fanTip(row.fans && row.fans[i])
         ).join("<br>");
       placeTooltip(tt, ev);
     },
     hide: () => { tt.style.opacity = 0; },
   });
+}
+
+// All three quantiles, which the table deliberately doesn't carry — the tooltip is
+// where there is room to show that the band is one-sided on an age panel: you cannot
+// stop earlier than the date you asked about, so a good draw pins to the dot and only
+// a bad one moves.
+function fanTip(fan) {
+  if (!fan) return "";
+  const at = o => Math.round(o.pct * 100) + "th: " + cellText(o, false);
+  return `<br><span style="opacity:.55">on arrival at ${fan.date} — ` +
+    escapeHtml(fan.points.map(at).join(" · ")) + "</span>";
 }
 
 // The gap between two scenarios is the reason the chart is a dumbbell, so it gets
@@ -337,13 +412,18 @@ function buildLadderTable(panels, active, cfg) {
     const held = row.tier.anchor === "age" ? "age " + row.tier.age : fmtFull(row.tier.spend, true) + "/yr";
     rows.push([row.tier.label, held, pn.key === "age" ? "Earliest age" : "Max spend"]
       .concat(row.cells.map(c => cellText(c, true)))
+      .concat(cfg.fan ? row.cells.map((c, i) => fanCell(c, row.fans && row.fans[i], true, pn.key)) : [])
       .concat(active.length === 2 ? [gapText(row, pn.key)] : []));
   }
   renderTable("ladder-table", {
     caption: `For each tier, the earliest retirement age or highest annual spend that still clears ${cfg.target}% success, ` +
       `under each scenario. "Already" means the target is met from the first age searched; "not by"/"not at any spend" ` +
-      `means no value in range meets it.`,
-    cols: ["Tier", "Held fixed", "Solved for"].concat(active.map(v => v.label)).concat(active.length === 2 ? ["Gap"] : []),
+      `means no value in range meets it.` +
+      (cfg.fan ? ` "Low draw" re-solves the rung as if you reach its date with a 10th-percentile balance — the` +
+        ` mid-course correction a bad run would call for, rather than the failure probability itself.` : ""),
+    cols: ["Tier", "Held fixed", "Solved for"].concat(active.map(v => v.label))
+      .concat(cfg.fan ? active.map(v => v.label + " — low draw") : [])
+      .concat(active.length === 2 ? ["Gap"] : []),
     rows,
   });
 }
@@ -368,5 +448,8 @@ function describeLadder(panels, active, cfg) {
   }
   describeChart("ladder", `Step-up ladder: ${n} lifestyle ${n === 1 ? "tier" : "tiers"} across ${active.length} ` +
     `${active.length === 1 ? "scenario" : "scenarios"}, each solved to a ${cfg.target} percent success probability. ` +
-    lead + `Full figures in the data table below.`);
+    lead +
+    (cfg.fan ? `A band behind each rung spans where its answer lands across the range of balances you might ` +
+      `actually arrive with. ` : "") +
+    `Full figures in the data table below.`);
 }
