@@ -60,6 +60,7 @@ export function ladderConfig() {
     maxSpend: Math.max(1000, parseNum(inputVal(el("ld-max")))),
     fullRange: el("ld-domain").value === "full",
     fan: el("ld-fan").value !== "off",
+    corridor: +el("ld-corridor").value,
   };
 }
 
@@ -82,6 +83,22 @@ export function setLadder(L) {
   if (L.maxSpend) setMoneyInput(el("ld-max"), commafy(L.maxSpend), "flow");
   touched = true;
   renderLadderControls();
+}
+
+// The corridor picks one tier, so its options are the tier list — which is edited,
+// reordered and deleted from freely. Rebuilt on every draw rather than hooked into
+// each mutation site: there are five of those and missing one leaves the select
+// naming a tier that no longer exists. Selection is held by index, and falls back to
+// Hide when the list shrinks past it.
+export function syncCorridorOptions() {
+  const sel = el("ld-corridor"), want = getTiers();
+  const have = [...sel.options].slice(1).map(o => o.textContent).join("\u0000");
+  const names = want.map((t, i) => tierName(t, i));
+  if (have === names.join("\u0000")) return;
+  const keep = +sel.value;
+  sel.innerHTML = '<option value="-1">Hide</option>' +
+    names.map((n, i) => `<option value="${i}">${escapeHtml(n)}</option>`).join("");
+  sel.value = String(keep >= 0 && keep < names.length ? keep : -1);
 }
 
 // Re-derive an untouched ladder from the plan. Skipped while the pointer or the
@@ -378,6 +395,9 @@ export function initLadder(onChange) {
   el("ld-fan").addEventListener("change", () => {
     if (!redrawLadder(ladderConfig())) scheduleLadder();
   });
+  // The corridor is solved on demand for the tier that is picked, so there is never
+  // anything in hand to repaint — every change here is a fresh solve.
+  el("ld-corridor").addEventListener("change", scheduleLadder);
 }
 
 // The card's one-line summary of what it's solving against, kept in step with the

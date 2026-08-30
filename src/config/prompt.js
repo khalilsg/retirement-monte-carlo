@@ -158,9 +158,10 @@ function mdTable(head, rows) {
 
 // ---------- The whole thing ----------
 // `bundle` is assembled by ui/prompt.js: { version, date, p, nSims, full, tornado,
-// ladder, code }. Ladder rows carry their own `fans` (see engine/arrival.js). `normalized` swaps every money figure for its ratio form.
+// ladder, corridor, code }. Ladder rows carry their own `fans` (see engine/arrival.js);
+// `corridor` is present only when a tier is selected for one (see engine/corridor.js). `normalized` swaps every money figure for its ratio form.
 export function buildPrompt(bundle, normalized) {
-  const { p, nSims, full, tornado, ladder, version, date, code } = bundle;
+  const { p, nSims, full, tornado, ladder, corridor, version, date, code } = bundle;
   const money = moneyFmt(p, normalized);
   const target = ladder && ladder.cfg ? ladder.cfg.target : null;
   const ph = full.successPct / 100;
@@ -187,8 +188,8 @@ export function buildPrompt(bundle, normalized) {
     "by the simulator.",
     "",
     "**Ground rule: use only the numbers in this message.** You can't run this model, so anything you'd",
-    "have to compute — the balance I'd need at some particular age, a success rate under assumptions I",
-    "haven't given you, a rung I haven't listed — is not available to you. Where a question",
+    "have to compute — a success rate under assumptions I haven't given you, a rung or a scenario I",
+    "haven't listed, anything at a date the figures below don't cover — is not available to you. Where a question",
     "below needs a figure that isn't here, say what's missing and what it would take to get it. Don't",
     "estimate it. A confident invented number is the one failure mode that makes this whole exercise",
     "worse than useless.",
@@ -206,12 +207,14 @@ export function buildPrompt(bundle, normalized) {
     "   that rung becomes if I reach its date with a 10th-percentile balance. Read those as the cost of a",
     "   bad run, in years or in spending. Say which rungs absorb it and which don't, and what that means",
     "   for which rung is actually the safe one to aim at.",
-    "5. **Which assumption is carrying the plan.** Read the sensitivity ranking below — what it means",
+    "5. **The balance track**, if one is included below. Say what the requirement at each age means in practice —",
+    "   what I would actually check, and when a shortfall would be worth acting on rather than riding out.",
+    "6. **Which assumption is carrying the plan.** Read the sensitivity ranking below — what it means",
     "   that this particular assumption tops it, and which entries are ones I control versus ones I'm",
     "   just exposed to.",
-    "6. **The sampling caveat.** Read the note at the end and say what it means for *this* plan given",
+    "7. **The sampling caveat.** Read the note at the end and say what it means for *this* plan given",
     "   where its success rate sits.",
-    "7. **What to check at the next review.** A short list, each item a thing I could actually observe.",
+    "8. **What to check at the next review.** A short list, each item a thing I could actually observe.",
     "",
     "Be direct and skeptical. If the plan looks fragile, say so. If a figure below undercuts something",
     "else in it, point at the tension rather than smoothing it over.",
@@ -260,6 +263,34 @@ export function buildPrompt(bundle, normalized) {
     "one-sided on an age solve: I cannot stop earlier than the date the rung already names, so a good draw leaves",
     "the answer where it is and only a bad one moves it later. And a rung with no crossing has no date to arrive",
     "at, so it has no low draw either — those read as a dash, not as a zero cost.");
+
+  if (corridor) {
+    push("", "## The balance track for the " + corridor.tier + " tier", "",
+      "One rung, viewed over time. This is the balance I would need at each age between now and " + corridor.c.date + " to keep",
+      "that tier at the target rate — the checkable form of the probability, since a balance is something I can look up",
+      "once a year and a probability is not. It assumes the plan keeps running: contributions continue to the date, so",
+      "the line reads \"am I on track?\" rather than \"could I coast from here?\". Beside it is where the plan is actually",
+      "projected to be, so the reading is whether the projection clears the requirement and by how much.",
+      "");
+    push(...mdTable(
+      ["Age", "Balance needed", "Projected 10th", "Projected median", "Projected 90th"],
+      corridor.c.points.map(o => {
+        const i = corridor.c.bands.ages.indexOf(o.age);
+        // The same three outcomes once more. "0" would read as "you need nothing" in
+        // one case and as an answer in the other, and only one of those is true.
+        const need = o.status === "all" ? "any balance"
+          : o.status === "none" ? "no balance in range clears it"
+          : money(o.value);
+        return [o.age, need, money(corridor.c.bands.p10[i]), money(corridor.c.bands.p50[i]), money(corridor.c.bands.p90[i])];
+      })));
+    const x = corridor.crossing;
+    if (x) push("",
+      x.status === "above" ? "Even a 10th-percentile run stays above that line the whole way."
+        : x.status === "below" ? "A 10th-percentile run is already below that line today."
+        : "A 10th-percentile run stays above that line through age " + x.age + ", and falls behind after.",
+      "The median clears it near enough by construction — the rung is defined as the point where the plan hits the",
+      "target — so the lower band is the one worth reading.");
+  }
 
   push("", "## Which assumption moves the answer most", "",
     "Each row moves one assumption across a plausible range with everything else held at the plan above,",

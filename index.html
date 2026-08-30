@@ -431,6 +431,9 @@
             <option value="off" selected>Hide</option>
             <option value="on">Show (slower)</option>
           </select></div>
+          <div class="field"><label for="ld-corridor">Glide corridor</label><select id="ld-corridor">
+            <option value="-1" selected>Hide</option>
+          </select></div>
         </div>
         <p class="hint" id="ld-note"></p>
 
@@ -452,6 +455,21 @@
 
         <div class="legend ladder-legend" id="ld-legend"></div>
         <svg id="ladder" viewBox="0 0 760 300" role="img" aria-label="Step-up ladder of retirement age or spending by lifestyle tier"></svg>
+
+        <div class="corridor-panel" id="corridor-panel" hidden>
+          <h3 class="ladder-h">Glide corridor</h3>
+          <p class="hint">A rung's answer is a probability, and a probability is an awkward thing to steer by — it is
+            guaranteed to move, so watching it year to year tells you little. This turns it into something you can
+            check: the <b>balance you'd need at each age</b> between now and that rung's date to keep it alive, drawn
+            over the balance you're actually projected to reach. The reading is <em>am I above the line?</em></p>
+          <p class="hint"><b>It assumes the plan keeps running</b> — contributions continue to the date — so the line
+            means "am I on track?", not "could I coast from here?". On a plan that saves heavily those are very
+            different, and the line sits far below your balance early on for exactly that reason.</p>
+          <div class="legend" id="corridor-legend"></div>
+          <svg id="corridor" viewBox="0 0 760 320" role="img" aria-label="Balance needed at each age to hold a lifestyle tier, against the balance projected"></svg>
+          <p class="hint" id="corridor-note"></p>
+          <details class="method"><summary>Show data table</summary><div class="scroll-x" tabindex="0"><table class="datatable" id="corridor-table"></table></div></details>
+        </div>
 
         <div class="prompt-copy">
           <h3 class="ladder-h">Get a written reading of this plan</h3>

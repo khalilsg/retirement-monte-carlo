@@ -316,14 +316,62 @@ eq(await bands(), 0, "hiding it again takes the bands off the chart");
 ok(!(await tableText()).includes("low draw"), "and the figure out of the table");
 ok(hideMs < 120, `and repaints rather than re-solving to do it (${hideMs}ms)`);
 
+await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
+const clip = () => page.evaluate(() => navigator.clipboard.readText());
+
+// --- the glide corridor ---
+// engine/corridor.js is covered in Node (test/corridor.test.js). What needs a page is
+// the panel: that it stays out of the way until a tier is picked, that its tier list
+// tracks the tiers themselves, and that picking one actually draws two series rather
+// than an empty frame.
+eq(await page.$eval("#corridor-panel", n => n.hidden), true, "the corridor panel is hidden until a tier is picked");
+
+// The options are the tier list, rebuilt on every draw rather than hooked into each
+// of the five places a tier can change — so a rename has to show up here.
+const corridorOpts = () => page.$$eval("#ld-corridor option", os => os.map(o => o.textContent));
+eq(JSON.stringify(await corridorOpts()), JSON.stringify(["Hide", "Bare-bones", "Necessities", "Comfortable"]),
+  "the corridor offers one option per tier");
+await page.fill(".ldtier:nth-of-type(2) .lt-label", "Renamed");
+await settle(1400);
+ok((await corridorOpts()).includes("Renamed"), "and follows a tier being renamed");
+await page.fill(".ldtier:nth-of-type(2) .lt-label", "Necessities");
+await settle(1400);
+
+await page.selectOption("#ld-corridor", "2");
+await settle(6000);
+eq(await page.$eval("#corridor-panel", n => n.hidden), false, "picking a tier opens the panel");
+// Two series, not one: the corridor line is only a reading against the bands behind
+// it, and a panel with just one of them drawn is not the chart.
+ok(await page.$$eval("#corridor path[stroke-dasharray]", ps => ps.length) > 0, "the corridor line is drawn");
+ok(await page.$$eval("#corridor path[fill^='var(--band']", ps => ps.length) >= 2, "over the projected percentile bands");
+ok(await page.$$eval("#corridor-table tbody tr", r => r.length) > 2, "and the data table carries the figures");
+
+// The note has to name what is held: a corridor is meaningless without the spend and
+// the date it is a corridor *for*.
+const cNote = await page.$eval("#corridor-note", n => n.textContent);
+ok(/Holding .* retiring at \d+/.test(cNote), `the note names what is held (${cNote.slice(0, 60)}…)`);
+ok(/on track|assumes the plan keeps running/.test(await page.$eval("#corridor-panel", n => n.textContent)),
+  "and the panel says the line assumes the plan keeps running");
+
+// A selected corridor reaches the analysis prompt too. Shipping the corridor without
+// this would put the prompt's ground rule back into the state PR #15 fixed: naming a
+// balance-at-an-age as something the app cannot compute, while computing one.
+await page.click("#copy-prompt");
+await settle(9000);
+const withCorridor = await clip();
+ok(/## The balance track for/.test(withCorridor), "a selected corridor reaches the analysis prompt");
+ok(!/balance I'd need at some particular age/.test(withCorridor),
+  "and the prompt does not disclaim a balance-at-age while supplying one");
+
+await page.selectOption("#ld-corridor", "-1");
+await settle(2200);
+eq(await page.$eval("#corridor-panel", n => n.hidden), true, "and Hide puts it away again");
+
 // --- the analysis prompt ---
 // The Node suite covers the serializer itself (test/prompt.test.js). What it cannot
 // reach is the wiring: which button builds which variant, and whether private mode
 // actually shuts the dollars one down. Both of those are the privacy promise, and
 // both would pass every unit test while being exactly backwards.
-await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: new URL(base).origin });
-const clip = () => page.evaluate(() => navigator.clipboard.readText());
-
 await page.click("#copy-prompt");
 await settle(1200);
 const dollars = await clip();

@@ -14,10 +14,11 @@ import { renderTornado } from "../charts/tornado.js";
 import { renderSweep } from "../charts/sweep.js";
 import { renderHeat } from "../charts/heat.js";
 import { renderLadder } from "../charts/ladder.js";
+import { renderCorridor } from "../charts/corridor.js";
 import { ensureIndex, buildIndex, reshuffleSeed } from "../engine/rng.js";
 import { simFull } from "../engine/simulate.js";
 import { loadInitial, initScenarios, readScenario } from "./scenarios.js";
-import { initLadder, ladderConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, renderLadderControls } from "./ladder.js";
+import { initLadder, ladderConfig, getTiers, getVariants, syncLadderSeed, syncLadderNote, syncCorridorOptions, renderLadderControls } from "./ladder.js";
 import { initPrivacy, swapInputs } from "./privacy.js";
 import { initPrompt, syncPromptChrome } from "./prompt.js";
 import { initFooter } from "./footer.js";
@@ -49,7 +50,13 @@ function recomputeHeavy() { renderSequence(); renderTornado(); renderSweep(); re
 function drawLadder() {
   syncLadderSeed();
   syncLadderNote();
-  renderLadder(ladderConfig(), getTiers(), getVariants());
+  syncCorridorOptions();
+  const cfg = ladderConfig(), tiers = getTiers(), variants = getVariants();
+  renderLadder(cfg, tiers, variants);
+  // After the ladder, and only for the tier that was asked for: the corridor is a
+  // bisection per age on top of everything above, so it stays opt-in and one at a
+  // time. See charts/corridor.js.
+  renderCorridor(cfg, tiers, variants, cfg.corridor);
 }
 
 export function recompute() { recomputeLight(); recomputeHeavy(); }

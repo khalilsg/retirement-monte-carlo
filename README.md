@@ -25,6 +25,11 @@ An interactive retirement simulator. It bootstraps **real annual market history 
   so every figure is shipped precomputed and the prompt forbids inventing the rest. Offered in a
   normalized variant that states everything as ratios, for a reading you can get without pasting real
   amounts into a third party
+- **Glide corridor** (opt-in) — the same rung viewed over time, and the one view here that isn't a probability:
+  the **balance you'd need at each age** between now and that rung's date to keep it alive, drawn over the balance
+  you're actually projected to reach. A probability is guaranteed to move, so watching it year to year tells you
+  little; a balance is something you can look up once a year and act on. The line assumes the plan keeps running —
+  contributions continue to the date — so it reads *am I on track?* rather than *could I coast from here?*
 - **Scenarios** — presets, save-as-default, shareable links (`?s=…`) that open straight into someone else's numbers, and a `?demo` view that opens the built-in example instead of your saved default
 - **Monte Carlo confidence interval** on the headline result
 - **Private mode** — hides every dollar amount for screen sharing: balances render as a multiple (×) of your balance today, annual amounts as a percentage of it, so charts and ratios stay fully readable
@@ -45,6 +50,7 @@ src/
     simulate.js       simSuccess / simFull / simSequence
     ladder.js         bisects simSuccess for the step-up ladder's age / spend answers
     arrival.js        re-solves each rung at its own date, across the arrival distribution
+    corridor.js       bisects on the starting balance for a rung's required track over time
   config/
     parameters.js     the parameter registry — single source of truth for every
                       tunable (DOM binding, live label, scenario codec, sweep meta)
@@ -52,7 +58,7 @@ src/
     codec.js          scenario <-> compact URL-safe share code
     prompt.js         the analysis prompt — pure serializer over everything computed
   charts/             one module per visualization (fan, sweep, tornado, heat,
-                      sequence, ladder) + shared svg.js helpers
+                      sequence, ladder, corridor) + shared svg.js helpers
   ui/                 DOM glue: controls, outcome card, scenarios, orchestration
                       privacy.js — private-mode toggle, input masking, leak guards
                       ladder.js — the step-up ladder's tiers, scenarios, and editors
@@ -67,11 +73,11 @@ tools/                dev scripts (browser-check.mjs — end-to-end via Playwrig
 The engine, the parameter registry, and the scenario codec are pure and DOM-free, so they import straight into Node. No test framework, no build, no dependencies:
 
 ```bash
-node --test test/*.test.js                        # 84 tests, about a second
+node --test test/*.test.js                        # 96 tests, about a second
 node --test --test-reporter=spec test/*.test.js   # readable output when something fails
 ```
 
-`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. It also covers the analysis prompt's serializer — that the normalized variant contains no dollar amount anywhere (including the units baked into a stream's own sensitivity label, which is where a real leak was found), that the plan block is derived from the registry rather than hand-listed, and that the ladder's three outcomes stay distinguishable once they're prose. For the arrival range it pins the property the whole cheap method rests on — that success is monotone in the balance you start from, checked under guardrails, a glide path and both income-stream bases at once — along with the rule that a rung with no crossing gets no fan rather than a fabricated one. Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
+`test/` covers timeline phases and income-stream flattening on both age bases, scenario round-trips and backward compatibility with older share codes, the behavior of the three simulators, and the ladder solver — that a reported crossing really is one (a step to the worse side misses the target, the figure itself clears it) and that the two no-crossing cases come back labelled rather than as a boundary dressed up as an answer. It also covers the analysis prompt's serializer — that the normalized variant contains no dollar amount anywhere (including the units baked into a stream's own sensitivity label, which is where a real leak was found), that the plan block is derived from the registry rather than hand-listed, and that the ladder's three outcomes stay distinguishable once they're prose. For the arrival range it pins the property the whole cheap method rests on — that success is monotone in the balance you start from, checked under guardrails, a glide path and both income-stream bases at once — along with the rule that a rung with no crossing gets no fan rather than a fabricated one. The corridor's tests pin what its line *means*: solved with contributions still running, so stopping them raises the bar at every age, which is the difference between "am I on track?" and "could I coast?". Bare `node --test` sweeps every file under `test/`, so keep anything that isn't a test out of that directory — that's what `tools/` is for.
 
 The control layer and the charts need a real DOM, so those are checked end-to-end against the actual page:
 
@@ -171,6 +177,30 @@ Tiers and scenarios travel in the share code, but only once you've edited them �
 rungs from the plan's own spending, so it reconstructs itself at the far end and costs nothing. Editing it roughly
 doubles a typical code (132 characters to about 335 for the bridge preset), which is the price of a comparison you
 can actually send someone.
+
+### Glide corridor
+Every other view answers "how likely is this?". The corridor answers **"am I above the line?"**, which is the same
+question in a form you can check without re-running anything. Pick a tier under **Glide corridor** and it solves, for
+each age between now and that rung's date, the balance that would hold the tier at your target rate — then draws your
+projected percentile bands behind it.
+
+**What the line assumes decides what it means.** It is solved with the plan still running: contributions continue from
+each age through to the date. So it reads *am I on track?*, not *could I coast from here?*. On a plan that saves
+heavily those differ by most of the answer, which is why the line can sit well below your balance early on and
+converge toward the date — the gap is what your future contributions are worth.
+
+The reading watches the **10th percentile**, not the median. A rung is defined as the point where the plan hits its
+target, so by the tower property the median clears its own corridor essentially by construction — it reports "above"
+for any rung the ladder managed to solve, which is no news. The lower band is where the content is: the age at which a
+bad run stops being something you ride out and starts being something you act on.
+
+Two things carry over from the ladder. A rung with **no crossing gets no corridor** — there is no date to march
+toward. And the vertical axis is **fitted rather than anchored at zero**, because the whole reading is the distance
+between two lines that sit close together and a zero-based axis flattens it to nothing; the axis label says where it
+starts, and the data table carries the unscaled figures.
+
+It is a bisection per age on top of everything else in the card, so it is off until you pick a tier, and it draws one
+tier against one scenario at a time.
 
 ### Analysis prompt
 Under the ladder chart, two buttons build a ready-to-paste prompt asking Claude for a written reading of the loaded

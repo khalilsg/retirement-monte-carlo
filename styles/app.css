@@ -264,6 +264,15 @@
   /* The analysis-prompt block, sitting under the ladder chart. Set on the panel
      background so it reads as a distinct action rather than as more chart chrome —
      it is the one control on the page whose effect leaves the page. */
+  /* The corridor sits inside the Ladder card as a second panel, on the same panel
+     background as the prompt block below it — it is the same question (this rung)
+     viewed over time, not a separate card's worth of subject. */
+  .corridor-panel { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px;
+    padding: 13px 13px 6px; margin: 16px 0 4px; }
+  .corridor-panel > .hint { margin: 0 0 8px; }
+  .corridor-panel > .legend { margin: 10px 0 0; }
+  .corridor-panel > svg { margin-top: 4px; }
+
   .prompt-copy { background: var(--surface-2); border: 1px solid var(--hairline); border-radius: 10px;
     padding: 13px 13px 12px; margin: 16px 0 4px; }
   .prompt-copy > .hint { margin: 0 0 8px; }

@@ -16,15 +16,9 @@
 // change the block length, so the matrix never needs rebuilding mid-solve.
 import { simSuccess } from "./simulate.js";
 
-// A solve reports one of three things, and the difference matters: a tier that
-// clears the target everywhere in range, or nowhere in it, has no crossing to
-// report, and printing the boundary as though it were an answer would be a lie.
-//   "solved" — a crossing inside the range; `value` is it
-//   "all"    — every value in the range clears the target
-//   "none"   — no value in the range clears it
-// `value` is still filled in for "all"/"none" (the end of the range that came
-// closest to being informative), so a caller can place a marker without inventing
-// a number to print.
+// Every solve here reports one of three outcomes — "solved", "all", "none" — and the
+// difference matters enough that it is documented on bisect() below, which is where
+// the distinction is actually made.
 
 // Spending is searched to the nearest few hundred dollars and then reported down to
 // a round hundred: rounding *down* keeps the answer on the side that still clears
@@ -64,9 +58,48 @@ export function ageBounds(p) {
   return [lo, Math.max(lo, p.endAge - 1)];
 }
 
+// The bisection itself, over any monotone free variable.
+//
+// This was two hand-written copies until the glide corridor (corridor.js) needed a
+// third direction. They differed only in which way success runs and how finely the
+// variable divides, and both had their own copy of the three-outcome bookkeeping —
+// which is exactly the part worth having once.
+//
+//   rising  — success climbs with the variable, so the answer is the LOWEST value
+//             that still clears (a retirement age; a starting balance)
+//   falling — success falls with it, so the answer is the HIGHEST that clears
+//             (an annual spend)
+//
+// The three outcomes are the reason this returns a tagged object rather than a
+// number: a variable that clears the target across its whole range, or nowhere in
+// it, has no crossing, and printing the boundary as though it were one would be a
+// lie. `value` is still filled in for those, at whichever end came closest to being
+// informative, so a caller can place a marker without inventing a figure.
+export function bisect(at, lo, hi, target, tol, rising, int) {
+  const sLo = at(lo), sHi = at(hi);
+  const frame = { sLo, sHi, lo, hi };
+  const clears = s => s >= target;
+  // An integer variable has to stay one: a fractional retirement age would reach
+  // phaseOf and make the accumulation phase a fraction of a year long.
+  const midOf = (a, b) => int ? (a + b) >> 1 : (a + b) / 2;
+  let a = lo, b = hi;
+  if (rising) {
+    if (clears(sLo)) return Object.assign({ status: "all", value: lo, success: sLo }, frame);
+    if (!clears(sHi)) return Object.assign({ status: "none", value: hi, success: sHi }, frame);
+    // Invariant: at(a) < target, at(b) >= target.
+    while (b - a > tol) { const m = midOf(a, b); if (clears(at(m))) b = m; else a = m; }
+    return Object.assign({ status: "solved", value: b, success: at(b) }, frame);
+  }
+  if (!clears(sLo)) return Object.assign({ status: "none", value: lo, success: sLo }, frame);
+  if (clears(sHi)) return Object.assign({ status: "all", value: hi, success: sHi }, frame);
+  while (b - a > tol) { const m = midOf(a, b); if (clears(at(m))) a = m; else b = m; }
+  return Object.assign({ status: "solved", value: a, success: at(a) }, frame);
+}
+
 // A memoized probe. Bisection re-visits the endpoints, and each visit is a full
-// Monte Carlo run, so the cache is worth its four lines.
-function prober(p, nSims, mutate) {
+// Monte Carlo run, so the cache is worth its four lines. Exported for corridor.js,
+// which probes a different free variable against the same simulator.
+export function prober(p, nSims, mutate) {
   const seen = new Map();
   return v => {
     if (seen.has(v)) return seen.get(v);
@@ -91,17 +124,7 @@ export function solveAge(p, nSims, target, spend) {
   const base = clone(p);
   base.spend = spend;
   const [lo, hi] = ageBounds(base);
-  const at = prober(base, nSims, (q, a) => { q.retAge = a; });
-  const sLo = at(lo), sHi = at(hi);
-  if (sLo >= target) return { status: "all", value: lo, success: sLo, sLo, sHi, lo, hi };
-  if (sHi < target) return { status: "none", value: hi, success: sHi, sLo, sHi, lo, hi };
-  // Invariant: at(a) < target, at(b) >= target.
-  let a = lo, b = hi;
-  while (b - a > 1) {
-    const mid = (a + b) >> 1;
-    if (at(mid) >= target) b = mid; else a = mid;
-  }
-  return { status: "solved", value: b, success: at(b), sLo, sHi, lo, hi };
+  return bisect(prober(base, nSims, (q, a) => { q.retAge = a; }), lo, hi, target, 1, true, true);
 }
 
 // Highest annual spend that still clears `target`, for a fixed retirement age.
@@ -112,21 +135,14 @@ export function solveSpend(p, nSims, target, age, maxSpend) {
   const base = clone(p);
   base.retAge = age;
   const lo = 0, hi = Math.max(SPEND_TOL * 4, maxSpend);
-  const at = prober(base, nSims, (q, v) => { q.spend = v; });
-  const sLo = at(lo), sHi = at(hi);
-  // Spending nothing is the friendliest case there is. If even that misses the
-  // target, no amount of belt-tightening reaches it — the plan is short elsewhere.
-  if (sLo < target) return { status: "none", value: lo, success: sLo, sLo, sHi, lo, hi };
-  // Still clearing at the top of the range means the search cap is what's binding,
-  // not the plan. Say so rather than reporting the cap as a finding.
-  if (sHi >= target) return { status: "all", value: hi, success: sHi, sLo, sHi, lo, hi };
-  let a = lo, b = hi;
-  while (b - a > SPEND_TOL) {
-    const mid = (a + b) / 2;
-    if (at(mid) >= target) a = mid; else b = mid;
-  }
-  const value = Math.floor(a / SPEND_ROUND) * SPEND_ROUND;
-  return { status: "solved", value, success: at(a), sLo, sHi, lo, hi };
+  // Falling: spending nothing is the friendliest case there is, so "none" here means
+  // even that misses the target and the plan is short somewhere other than lifestyle,
+  // while "all" means the search cap is what's binding rather than the plan.
+  const r = bisect(prober(base, nSims, (q, v) => { q.spend = v; }), lo, hi, target, SPEND_TOL, false, false);
+  // Reported down to a round hundred, and rounded *down* on purpose: that keeps the
+  // figure on the side that still clears the target, which is the whole point of it.
+  // `success` stays the one measured at the unrounded crossing.
+  return r.status === "solved" ? Object.assign({}, r, { value: Math.floor(r.value / SPEND_ROUND) * SPEND_ROUND }) : r;
 }
 
 // Solve one tier under one scenario. A tier carries both numbers at all times so
