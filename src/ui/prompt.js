@@ -1,4 +1,4 @@
-// The "hand this to Claude" buttons: gather everything the engine knows about the
+// The "hand this to an AI chat model" buttons: gather everything the engine knows about the
 // loaded plan, hand it to the serializer in config/prompt.js, and put the result on
 // the clipboard.
 //
@@ -92,8 +92,8 @@ function run(normalized) {
   requestAnimationFrame(() => {
     const text = buildPrompt(gather(normalized), normalized);
     copyText(text, normalized
-      ? "Copied — ratios only, no dollar amounts. Paste it into Claude."
-      : "Copied — this contains your real amounts. Paste it into Claude.", intoBox);
+      ? "Copied — ratios only, no dollar amounts. Paste it into an AI chat model."
+      : "Copied — this contains your real amounts. Paste it into an AI chat model.", intoBox);
   });
 }
 
