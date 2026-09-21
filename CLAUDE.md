@@ -103,8 +103,12 @@ American English throughout.
 ## Ground rules
 
 - **`main` is production.** It deploys to retirement.khalilsg.dev via GitHub Pages.
-  The repo ships by pushing straight to main — no PR has ever been opened. Ask before
-  pushing.
+  The repo ships both ways — straight to main, and through a PR opened and merged within
+  the same minute (#13–#17), where the body is the writeup for a change rather than a
+  request for review. Neither route implies a second pair of eyes. Ask before pushing,
+  whichever one you take.
+- **Delete the branch once it lands.** Merged branches accumulate otherwise and read as a
+  backlog of unshipped work; an audit in September found eight, all fully merged.
 - **The repo is public, and the owner's plan contains real finances.** Analysis written
   into issues, commits, or comments must use the ratio form private mode already renders
   — multiples of balance, percentages of it — never absolute amounts.
